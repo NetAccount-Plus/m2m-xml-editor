@@ -2,12 +2,14 @@ package hu.gov.nav.xsdparsertool.web;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.context.event.ApplicationEnvironmentPreparedEvent;
 import org.springframework.boot.context.event.ApplicationPreparedEvent;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.boot.context.event.ApplicationStartedEvent;
 import org.springframework.boot.context.event.ApplicationStartingEvent;
 import org.springframework.boot.web.context.WebServerApplicationContext;
+import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 import hu.nav.m2m.submitter.config.NavM2mProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -25,7 +27,15 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EntityScan(basePackages = {"hu.gov.nav.xsdparsertool", "hu.nav.m2m.submitter"})
 @EnableJpaRepositories(basePackages = {"hu.gov.nav.xsdparsertool", "hu.nav.m2m.submitter"})
 @EnableConfigurationProperties(NavM2mProperties.class)
-public class NavXsdParserToolWebApplication {
+public class NavXsdParserToolWebApplication extends SpringBootServletInitializer {
+
+    /**
+     * External servlet container (for example Tomcat) bootstrap entry point.
+     */
+    @Override
+    protected SpringApplicationBuilder configure(SpringApplicationBuilder application) {
+        return application.sources(NavXsdParserToolWebApplication.class);
+    }
 
     /**
      * A {@code main} művelet a komponens felelősségi körébe tartozó feldolgozási lépést hajtja végre.
