@@ -1,0 +1,43 @@
+name: Build Tomcat WAR
+
+on:
+  push:
+    branches:
+      - main
+      - feature/tomcat-war
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-war:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Build web WAR
+        run: mvn -B -pl nav-xsd-parser-tool-web -am clean package -DskipTests
+
+      - name: Verify WAR
+        run: test -f nav-xsd-parser-tool-web/target/m2m-service.war
+
+      - name: Upload Tomcat WAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: m2m-service-war
+          path: nav-xsd-parser-tool-web/target/m2m-service.war
+          if-no-files-found: error
+          retention-days: 30
