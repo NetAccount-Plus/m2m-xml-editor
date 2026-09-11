@@ -8,6 +8,7 @@
         <version>${revision}</version>
     </parent>
     <artifactId>nav-xsd-parser-tool-web</artifactId>
+    <packaging>war</packaging>
     <name>nav-xsd-parser-tool-web</name>
 
     <dependencies>
@@ -44,6 +45,11 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-tomcat</artifactId>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -101,7 +107,6 @@
             <artifactId>mysql-connector-j</artifactId>
             <scope>runtime</scope>
         </dependency>
-        <!-- Oracle JDBC driver support for ORACLE database profile/runtime. -->
         <dependency>
             <groupId>com.oracle.database.jdbc</groupId>
             <artifactId>ojdbc11</artifactId>
@@ -135,7 +140,7 @@
     </dependencies>
 
     <build>
-        <finalName>nav-xsd-parser-tool-web</finalName>
+        <finalName>m2m-service</finalName>
         <resources>
             <resource>
                 <directory>${maven.multiModuleProjectDirectory}</directory>
@@ -177,7 +182,6 @@
                     <argLine>@{argLine} -javaagent:${org.mockito:mockito-core:jar} -Dm2m.xml.editor.bootstrap.auto-load-enabled=false -Dfile.encoding=UTF-8 -Dsun.stdout.encoding=UTF-8 -Dsun.stderr.encoding=UTF-8</argLine>
                 </configuration>
             </plugin>
-
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
