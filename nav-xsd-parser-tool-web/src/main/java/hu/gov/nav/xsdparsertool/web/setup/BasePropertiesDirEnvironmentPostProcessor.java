@@ -1,5 +1,6 @@
 package hu.gov.nav.xsdparsertool.web.setup;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -26,7 +27,7 @@ import org.springframework.core.env.StandardEnvironment;
  */
 public class BasePropertiesDirEnvironmentPostProcessor implements EnvironmentPostProcessor, Ordered {
 
-    public static final String BASE_PROPERTIES_DIR = "base_properties_dir";
+    public static final String BASE_PROPERTIES_DIR = "BASE_PROPERTIES_DIR";
     public static final String MAIN_CONFIG_FILE = "nav-xsd-parser-tool-paths.properties";
     public static final String PROPERTY_SOURCE = "netAccountingBaseProperties";
     public static final String DATABASE_PROPERTY_SOURCE = "netAccountingDatabaseProperties";
@@ -40,7 +41,7 @@ public class BasePropertiesDirEnvironmentPostProcessor implements EnvironmentPos
             return;
         }
 
-        Path baseDir = Path.of(configuredBaseDir).toAbsolutePath().normalize();
+        Path baseDir = Path.of(configuredBaseDir+File.separator+"m2m").toAbsolutePath().normalize();
         Path mainConfig = baseDir.resolve(MAIN_CONFIG_FILE);
         if (!Files.isRegularFile(mainConfig)) {
             return;

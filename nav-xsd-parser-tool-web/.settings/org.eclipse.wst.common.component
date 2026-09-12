@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?><project-modules id="moduleCoreId" project-version="1.5.0">
+    <wb-module deploy-name="m2m-service">
+        <wb-resource deploy-path="/" source-path="/target/m2e-wtp/web-resources"/>
+        <wb-resource deploy-path="/" source-path="/src/main/webapp" tag="defaultRootSource"/>
+        <wb-resource deploy-path="/WEB-INF/classes" source-path="/src/main/java"/>
+        <wb-resource deploy-path="/WEB-INF/classes" source-path="/${maven.multiModuleProjectDirectory}"/>
+        <wb-resource deploy-path="/WEB-INF/classes" source-path="/src/main/resources"/>
+        <dependent-module archiveName="nav-xsd-parser-tool-core-1.11.40-SNAPSHOT.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/nav-xsd-parser-tool-core/nav-xsd-parser-tool-core">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="nav-xsd-parser-tool-m2m-submitter-1.11.40-SNAPSHOT.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/nav-xsd-parser-tool-m2m-submitter/nav-xsd-parser-tool-m2m-submitter">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="nav-xsd-parser-tool-schema-registry-1.11.40-SNAPSHOT.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/nav-xsd-parser-tool-schema-registry/nav-xsd-parser-tool-schema-registry">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="nav-xsd-parser-tool-github-updater-1.11.40-SNAPSHOT.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/nav-xsd-parser-tool-github-updater/nav-xsd-parser-tool-github-updater">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="nav-xsd-parser-tool-processing-1.11.40-SNAPSHOT.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/nav-xsd-parser-tool-processing/nav-xsd-parser-tool-processing">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="nav-xsd-parser-tool-xsd-1.11.40-SNAPSHOT.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/nav-xsd-parser-tool-xsd/nav-xsd-parser-tool-xsd">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="nav-xsd-parser-tool-page-schema-1.11.40-SNAPSHOT.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/nav-xsd-parser-tool-page-schema/nav-xsd-parser-tool-page-schema">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="nav-xsd-parser-tool-print-1.11.40-SNAPSHOT.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/nav-xsd-parser-tool-print/nav-xsd-parser-tool-print">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <dependent-module archiveName="nav-xsd-parser-tool-uimodel-1.11.40-SNAPSHOT.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/nav-xsd-parser-tool-uimodel/nav-xsd-parser-tool-uimodel">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <property name="context-root" value="m2m-service"/>
+        <property name="java-output-path" value="/nav-xsd-parser-tool-web/target/classes"/>
+    </wb-module>
+</project-modules>
