@@ -19,11 +19,8 @@ import org.springframework.core.env.PropertiesPropertySource;
 import org.springframework.core.env.StandardEnvironment;
 
 /**
- * NetAccounting/Tomcat környezetben a mar letezo base_properties_dir valtozobol
+ * NetAccounting/Tomcat környezetben a mar letezo BASE_PROPERTIES_DIR valtozobol
  * tolti be az M2M XML Editor kulso konfiguraciojat.
- *
- * <p>A betoltes az alapertelmezett bootstrap feldolgozo elott tortenik, igy a
- * kulso MySQL datasource mar a H2 fallback kiertekelese elott rendelkezesre all.</p>
  */
 public class BasePropertiesDirEnvironmentPostProcessor implements EnvironmentPostProcessor, Ordered {
 
@@ -31,6 +28,7 @@ public class BasePropertiesDirEnvironmentPostProcessor implements EnvironmentPos
     public static final String MAIN_CONFIG_FILE = "nav-xsd-parser-tool-paths.properties";
     public static final String PROPERTY_SOURCE = "netAccountingBaseProperties";
     public static final String DATABASE_PROPERTY_SOURCE = "netAccountingDatabaseProperties";
+    public static final String DEFAULTS_PROPERTY_SOURCE = "netAccountingServerDefaults";
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
@@ -41,7 +39,7 @@ public class BasePropertiesDirEnvironmentPostProcessor implements EnvironmentPos
             return;
         }
 
-        Path baseDir = Path.of(configuredBaseDir+File.separator+"m2m").toAbsolutePath().normalize();
+        Path baseDir = Path.of(configuredBaseDir + File.separator + "m2m").toAbsolutePath().normalize();
         Path mainConfig = baseDir.resolve(MAIN_CONFIG_FILE);
         if (!Files.isRegularFile(mainConfig)) {
             return;
@@ -49,8 +47,6 @@ public class BasePropertiesDirEnvironmentPostProcessor implements EnvironmentPos
 
         Properties mainProperties = load(mainConfig, "A NetAccounting M2M konfiguracio nem olvashato: ");
 
-        // Tegyuk a kornyezeti valtozot Spring property-kent is elerhetove, hogy a
-        // properties fajlokban ${base_properties_dir} helyettesites hasznalhato legyen.
         Map<String, Object> baseDirProperty = new LinkedHashMap<>();
         baseDirProperty.put(BASE_PROPERTIES_DIR, baseDir.toString());
         addAfterSystemEnvironment(environment.getPropertySources(),
@@ -62,25 +58,37 @@ public class BasePropertiesDirEnvironmentPostProcessor implements EnvironmentPos
         String databaseType = firstNonBlank(
                 environment.getProperty("nav.xsdparsertool.database.type"),
                 mainProperties.getProperty("nav.xsdparsertool.database.type"));
-        if (databaseType == null) {
-            return;
+
+        if (databaseType != null) {
+            Path databaseConfig = baseDir.resolve("database")
+                    .resolve(databaseType.trim().toUpperCase() + ".properties");
+            if (Files.isRegularFile(databaseConfig)) {
+                Properties databaseProperties = load(databaseConfig,
+                        "Az M2M adatbazis-konfiguracio nem olvashato: ");
+                MutablePropertySources sources = environment.getPropertySources();
+                sources.remove(DATABASE_PROPERTY_SOURCE);
+                sources.addBefore(PROPERTY_SOURCE,
+                        new PropertiesPropertySource(DATABASE_PROPERTY_SOURCE, databaseProperties));
+            }
         }
 
-        Path databaseConfig = baseDir.resolve("database")
-                .resolve(databaseType.trim().toUpperCase() + ".properties");
-        if (!Files.isRegularFile(databaseConfig)) {
-            return;
-        }
+        // A NAV konfiguracios katalogusa ezeket bootstrap kulcskent kotelezoen
+        // validalja. Kulso NetAccounting/Tomcat telepitesnel adjunk biztonsagos
+        // szerver alapertelmezest, de minden explicit beallitas elozze meg ezeket.
+        Properties defaults = new Properties();
+        defaults.setProperty("server.servlet.context-path", "/");
+        defaults.setProperty("spring.jpa.show-sql", "false");
+        defaults.setProperty("nav.xsdparsertool.database.schema", "m2m_xml_editor");
+        defaults.setProperty("nav.xsdparsertool.database.encoding", "UTF-8");
+        defaults.setProperty("spring.flyway.encoding", "UTF-8");
+        defaults.setProperty("spring.h2.console.enabled", "false");
+        defaults.setProperty("spring.h2.console.path", "/h2-console");
+        defaults.setProperty("logging.pattern.console", "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n");
+        defaults.setProperty("logging.pattern.file", "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n");
 
-        Properties databaseProperties = load(databaseConfig,
-                "Az M2M adatbazis-konfiguracio nem olvashato: ");
-
-        // A DB-specifikus fajl ertekei elozzek meg a fo M2M konfiguraciot, de a
-        // JVM/system/environment beallitasok tovabbra is felul tudjak irni oket.
         MutablePropertySources sources = environment.getPropertySources();
-        sources.remove(DATABASE_PROPERTY_SOURCE);
-        sources.addBefore(PROPERTY_SOURCE,
-                new PropertiesPropertySource(DATABASE_PROPERTY_SOURCE, databaseProperties));
+        sources.remove(DEFAULTS_PROPERTY_SOURCE);
+        sources.addLast(new PropertiesPropertySource(DEFAULTS_PROPERTY_SOURCE, defaults));
     }
 
     private Properties load(Path file, String errorPrefix) {
