@@ -72,6 +72,13 @@ public class BasePropertiesDirEnvironmentPostProcessor implements EnvironmentPos
             }
         }
 
+        String configuredDataDir = firstNonBlank(
+                environment.getProperty("app.data.dir"),
+                mainProperties.getProperty("app.data.dir"));
+        Path dataDir = configuredDataDir == null
+                ? baseDir.resolve("data")
+                : Path.of(configuredDataDir).toAbsolutePath().normalize();
+
         // A NAV konfiguracios katalogusa ezeket bootstrap kulcskent kotelezoen
         // validalja. Kulso NetAccounting/Tomcat telepitesnel adjunk biztonsagos
         // szerver alapertelmezest, de minden explicit beallitas elozze meg ezeket.
@@ -85,6 +92,15 @@ public class BasePropertiesDirEnvironmentPostProcessor implements EnvironmentPos
         defaults.setProperty("spring.h2.console.path", "/h2-console");
         defaults.setProperty("logging.pattern.console", "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n");
         defaults.setProperty("logging.pattern.file", "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n");
+
+        // A friss MySQL telepitesnel a Flyway ezekhez mar letrehozza az ures
+        // system_configuration rekordot. A katalogus-inicializalo a jelen
+        // property source-bol tolti fel az ures rekordot, igy a validator mar
+        // konzisztens, valos szerveroldali utvonalat kap.
+        defaults.setProperty("nav.xsdparsertool.paths.ui-model-dir",
+                dataDir.resolve("repo").resolve("uimodel").toString());
+        defaults.setProperty("nav.xsdparsertool.xml-index.config-path",
+                dataDir.resolve("data").resolve("xml-index").resolve("xml-index-config.xml").toString());
 
         MutablePropertySources sources = environment.getPropertySources();
         sources.remove(DEFAULTS_PROPERTY_SOURCE);
