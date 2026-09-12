@@ -131,14 +131,13 @@ public class GitHubTemplateCatalogService {
     }
 
     /**
-     * Tokenhez kötött, szinkron változásellenőrzést végez: lekéri a távoli organization repository-it, összeveti őket a lokális snapshot metaadataival, azonosítja a módosult és eltávolított repository-kat, majd rövid életű inspection cache-t és értesítési állapotot frissít.
+     * Szinkron változásellenőrzést végez a publikus GitHub API-n; ha opcionális token van konfigurálva, a kliens azt automatikusan használja. Lekéri a távoli organization repository-it, összeveti őket a lokális snapshot metaadataival, azonosítja a módosult és eltávolított repository-kat, majd rövid életű inspection cache-t és értesítési állapotot frissít.
      *
      * @return a távoli és lokális állapot különbségeit összegző válasz
      * @throws IOException ha a művelet végrehajtása közben a jelzett hiba bekövetkezik
      * @throws InterruptedException ha a művelet végrehajtása közben a jelzett hiba bekövetkezik
      */
     public synchronized GitHubTemplateCatalogDtos.ChangeCheckResponse checkForChanges() throws IOException, InterruptedException {
-        requireToken("GitHub változásellenőrzés");
         List<GitHubApiClient.RepositorySummary> remote = apiClient.listOrganizationRepositorySummaries().stream()
                 .filter(repo -> !repo.archived())
                 .toList();
@@ -172,15 +171,11 @@ public class GitHubTemplateCatalogService {
     }
 
     /**
-     * Elindítja a tényleges katalógusfrissítést háttérfeladatként, ha token rendelkezésre áll és nincs már futó frissítés.
+     * Elindítja a tényleges katalógusfrissítést háttérfeladatként. Publikus GitHub organization esetén token nélkül is működik; konfigurált token esetén a kliens azt használja.
      *
      * @return a háttérfrissítés indításának eredménye
      */
     public synchronized GitHubTemplateCatalogDtos.RefreshStartResponse startRefresh() {
-        if (!properties.hasToken()) {
-            return new GitHubTemplateCatalogDtos.RefreshStartResponse(false,
-                    "A katalógusfrissítéshez GitHub token beállítása szükséges.");
-        }
         if (progress.running) return new GitHubTemplateCatalogDtos.RefreshStartResponse(false, "A katalógus frissítése már folyamatban van.");
         progress = RefreshProgress.starting();
         CompletableFuture.runAsync(this::runRefresh);
@@ -293,13 +288,12 @@ public class GitHubTemplateCatalogService {
     }
 
     /**
-     * A kijelölt repository/tag párokat {@link GitHubSchemaUpdaterService} kérésévé alakítja és tényleges letöltésre továbbítja. Külső letöltéshez token meglétét követeli meg.
+     * A kijelölt repository/tag párokat {@link GitHubSchemaUpdaterService} kérésévé alakítja és tényleges letöltésre továbbítja. Publikus repository-k token nélkül is letölthetők; ha token van konfigurálva, azt a GitHub kliens használja.
      *
      * @param request a végrehajtandó frissítés vagy letöltés paraméterei
      * @return a művelet eredménye
      */
     public GitHubSchemaUpdateResponse download(GitHubTemplateCatalogDtos.DownloadRequest request) {
-        requireToken("GitHub release letöltés");
         if (request == null || request.items() == null || request.items().isEmpty()) {
             throw new IllegalArgumentException("Legalább egy repository és release tag kijelölése szükséges.");
         }
@@ -320,8 +314,6 @@ public class GitHubTemplateCatalogService {
         updateRequest.setRepositoryTags(selectedRepositoryTags);
         return updaterService.updateSchemas(updateRequest);
     }
-
-
 
     /**
      * A kijelölt release-ek helyi fájljait törli, majd az érintett repository-k teljes lokális katalógus-snapshotját eltávolítja.
@@ -534,7 +526,7 @@ public class GitHubTemplateCatalogService {
      * @return a művelet eredménye
      */
     private String safeFilePart(String value) {
-        return value.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
+        return value.replaceAll("[\\/:*?\"<>|]", "_").trim();
     }
 
     /**
@@ -578,17 +570,6 @@ public class GitHubTemplateCatalogService {
             checkForChanges();
         } catch (Exception ex) {
             LOGGER.warn("Background GitHub template change check failed: {}", ex.getMessage());
-        }
-    }
-
-    /**
-     * Külső GitHub művelet előtt ellenőrzi a token konfiguráltságát, és hiány esetén felhasználóbarát konfigurációs hibát dob.
-     *
-     * @param operation a diagnosztikában szereplő GitHub művelet neve
-     */
-    private void requireToken(String operation) {
-        if (!properties.hasToken()) {
-            throw new IllegalStateException(operation + " nem indítható, mert a GitHub token nincs beállítva.");
         }
     }
 
