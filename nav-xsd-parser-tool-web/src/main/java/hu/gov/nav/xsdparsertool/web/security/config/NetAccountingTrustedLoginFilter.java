@@ -7,6 +7,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
@@ -28,14 +30,10 @@ import java.util.regex.Pattern;
 
 /**
  * Rövid életű, HMAC-aláírt NetAccounting tokenből M2M webes munkamenetet hoz létre.
- *
- * <p>Fontos: ezt a filtert a SecurityConfiguration kifejezetten a Spring Security
- * filter chain-be teszi. Nem önálló servlet filter bean, mert akkor a Spring
- * Security későbbi SecurityContext betöltése felülírhatná az itt létrehozott
- * authentication contextet.</p>
  */
 public class NetAccountingTrustedLoginFilter extends OncePerRequestFilter {
 
+    private static final Logger LOG = LoggerFactory.getLogger(NetAccountingTrustedLoginFilter.class);
     private static final String LOGIN_PATH = "/sso/trusted-login";
     private static final long MAX_TOKEN_LIFETIME_SECONDS = 120;
     private static final long CLOCK_SKEW_SECONDS = 30;
@@ -44,6 +42,7 @@ public class NetAccountingTrustedLoginFilter extends OncePerRequestFilter {
 
     private final ObjectMapper objectMapper;
     private final String configuredSecret;
+    private final HttpSessionSecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
 
     public NetAccountingTrustedLoginFilter(ObjectMapper objectMapper, String configuredSecret) {
         this.objectMapper = objectMapper;
@@ -75,10 +74,14 @@ public class NetAccountingTrustedLoginFilter extends OncePerRequestFilter {
 
         try {
             TrustedToken token = verifyToken(request.getParameter("token"));
-            establishSession(request, token);
+            establishSession(request, response, token);
+            String target = request.getContextPath() + token.redirect();
             response.setHeader("Cache-Control", "no-store");
-            response.sendRedirect(request.getContextPath() + token.redirect());
+            LOG.info("NetAccounting trusted login accepted: userId={}, org={}, sessionId={}, redirect={}",
+                    token.userId(), token.org(), safeSessionId(request.getSession(false)), target);
+            response.sendRedirect(target);
         } catch (TrustedLoginException e) {
+            LOG.warn("NetAccounting trusted login rejected: {}", e.getMessage());
             response.setHeader("Cache-Control", "no-store");
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, e.getMessage());
         }
@@ -145,7 +148,9 @@ public class NetAccountingTrustedLoginFilter extends OncePerRequestFilter {
         return new TrustedToken(userId, org, redirect);
     }
 
-    private void establishSession(HttpServletRequest request, TrustedToken token) {
+    private void establishSession(HttpServletRequest request,
+                                  HttpServletResponse response,
+                                  TrustedToken token) {
         String principal = "netaccounting-" + token.userId();
         UsernamePasswordAuthenticationToken authentication = UsernamePasswordAuthenticationToken.authenticated(
                 principal,
@@ -157,14 +162,12 @@ public class NetAccountingTrustedLoginFilter extends OncePerRequestFilter {
         SecurityContextHolder.setContext(context);
 
         HttpSession session = request.getSession(true);
-        try {
-            request.changeSessionId();
-        } catch (IllegalStateException ignored) {
-            // Új session esetén nincs mit rotálni.
-        }
-        session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, context);
         session.setAttribute("netaccountingUserId", token.userId());
         session.setAttribute("netaccountingOrg", token.org());
+
+        // Spring Security 6 esetén a SecurityContextHolderFilter nem menti el automatikusan
+        // a később létrehozott contextet, ezért itt explicit perzisztáljuk a sessionbe.
+        securityContextRepository.saveContext(context, request, response);
     }
 
     private String normalizeRedirect(String value) throws TrustedLoginException {
@@ -188,6 +191,13 @@ public class NetAccountingTrustedLoginFilter extends OncePerRequestFilter {
 
     private void purgeExpiredNonces(long now) {
         USED_NONCES.entrySet().removeIf(entry -> entry.getValue() < now - CLOCK_SKEW_SECONDS);
+    }
+
+    private String safeSessionId(HttpSession session) {
+        if (session == null) return "none";
+        String id = session.getId();
+        if (id == null || id.length() < 8) return "present";
+        return id.substring(0, 8) + "...";
     }
 
     private record TrustedToken(String userId, String org, String redirect) {}
