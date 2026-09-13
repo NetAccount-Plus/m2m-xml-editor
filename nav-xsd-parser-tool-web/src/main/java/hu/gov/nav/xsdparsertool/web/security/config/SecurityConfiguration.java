@@ -1,5 +1,7 @@
 package hu.gov.nav.xsdparsertool.web.security.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -13,6 +15,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
 
 import hu.gov.nav.xsdparsertool.web.security.SecurityMode;
 import hu.gov.nav.xsdparsertool.web.security.PasswordPolicyProperties;
@@ -54,13 +57,19 @@ public class SecurityConfiguration {
     private final SecurityModeProperties securityModeProperties;
     private final AuditingAuthenticationHandlers auditingAuthenticationHandlers;
     private final ApiKeySecurityProperties apiKeySecurityProperties;
+    private final ObjectMapper objectMapper;
+    private final String netAccountingSsoSecret;
 
     public SecurityConfiguration(SecurityModeProperties securityModeProperties,
                                  AuditingAuthenticationHandlers auditingAuthenticationHandlers,
-                                 ApiKeySecurityProperties apiKeySecurityProperties) {
+                                 ApiKeySecurityProperties apiKeySecurityProperties,
+                                 ObjectMapper objectMapper,
+                                 @Value("${netaccounting.m2m-xml-editor.sso-secret:${nav.xsdparsertool.api-key.value:}}") String netAccountingSsoSecret) {
         this.securityModeProperties = securityModeProperties;
         this.auditingAuthenticationHandlers = auditingAuthenticationHandlers;
         this.apiKeySecurityProperties = apiKeySecurityProperties;
+        this.objectMapper = objectMapper;
+        this.netAccountingSsoSecret = netAccountingSsoSecret;
     }
 
     @Bean
@@ -94,14 +103,8 @@ public class SecurityConfiguration {
                                      DaoAuthenticationProvider localAuthenticationProvider,
                                      SetupStateService setupStateService) throws Exception {
         http.authenticationProvider(localAuthenticationProvider);
+        configureCommon(http, setupStateService);
         http
-                .csrf(AbstractHttpConfigurer::disable)
-                .headers(headers -> headers
-                        .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)
-                        .httpStrictTransportSecurity(hsts -> hsts.includeSubDomains(true).maxAgeInSeconds(31536000))
-                        .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'")))
-                .sessionManagement(session -> session
-                        .invalidSessionUrl("/login.html?sessionExpired=true"))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .anyRequest().authenticated())
@@ -117,26 +120,15 @@ public class SecurityConfiguration {
                         .logoutUrl("/logout")
                         .addLogoutHandler(auditingAuthenticationHandlers)
                         .logoutSuccessUrl("/login.html?logout=true")
-                        .permitAll())
-                .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint(new JsonAuthenticationEntryPoint())
-                        .accessDeniedHandler(new JsonAccessDeniedHandler()))
-                .addFilterBefore(new SetupRequiredFilter(setupStateService), AnonymousAuthenticationFilter.class)
-                .addFilterBefore(new ApiKeyAuthenticationFilter(apiKeySecurityProperties), AnonymousAuthenticationFilter.class);
+                        .permitAll());
     }
 
     private void configureMultiUser(HttpSecurity http,
                                     DaoAuthenticationProvider localAuthenticationProvider,
                                     SetupStateService setupStateService) throws Exception {
         http.authenticationProvider(localAuthenticationProvider);
+        configureCommon(http, setupStateService);
         http
-                .csrf(AbstractHttpConfigurer::disable)
-                .headers(headers -> headers
-                        .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)
-                        .httpStrictTransportSecurity(hsts -> hsts.includeSubDomains(true).maxAgeInSeconds(31536000))
-                        .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'")))
-                .sessionManagement(session -> session
-                        .invalidSessionUrl("/login.html?sessionExpired=true"))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .requestMatchers("/xml-index-config.html", "/api/xml-index-config/**")
@@ -169,10 +161,24 @@ public class SecurityConfiguration {
                         .logoutUrl("/logout")
                         .addLogoutHandler(auditingAuthenticationHandlers)
                         .logoutSuccessUrl("/login.html?logout=true")
-                        .permitAll())
+                        .permitAll());
+    }
+
+    private void configureCommon(HttpSecurity http, SetupStateService setupStateService) throws Exception {
+        http
+                .csrf(AbstractHttpConfigurer::disable)
+                .headers(headers -> headers
+                        .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)
+                        .httpStrictTransportSecurity(hsts -> hsts.includeSubDomains(true).maxAgeInSeconds(31536000))
+                        .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'")))
+                .sessionManagement(session -> session
+                        .invalidSessionUrl("/login.html?sessionExpired=true"))
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(new JsonAuthenticationEntryPoint())
                         .accessDeniedHandler(new JsonAccessDeniedHandler()))
+                .addFilterAfter(
+                        new NetAccountingTrustedLoginFilter(objectMapper, netAccountingSsoSecret),
+                        SecurityContextHolderFilter.class)
                 .addFilterBefore(new SetupRequiredFilter(setupStateService), AnonymousAuthenticationFilter.class)
                 .addFilterBefore(new ApiKeyAuthenticationFilter(apiKeySecurityProperties), AnonymousAuthenticationFilter.class);
     }
