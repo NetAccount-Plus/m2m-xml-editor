@@ -1,7 +1,5 @@
 package hu.gov.nav.xsdparsertool.web.security.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -33,49 +31,30 @@ import hu.gov.nav.xsdparsertool.web.setup.SetupStateService;
 public class SecurityConfiguration {
 
     private static final String[] PUBLIC_ENDPOINTS = {
-            "/setup.html",
-            "/js/pages/setup.js",
-            "/styles/setup.css",
-            "/api/setup/**",
-            "/login.html",
-            "/access-denied.html",
-            "/login",
-            "/sso/trusted-login",
-            "/favicon.ico",
-            "/images/SET_logo.png",
-            "/images/SET_logo_dark.png",
-            "/styles.css",
-            "/styles/**",
-            "/images/**",
-            "/js/**",
-            "/api/security/mode",
-            "/api/health",
-            "/swagger-ui/**",
-            "/v3/api-docs/**"
+            "/setup.html", "/js/pages/setup.js", "/styles/setup.css", "/api/setup/**",
+            "/login.html", "/access-denied.html", "/login", "/sso/trusted-login",
+            "/favicon.ico", "/images/SET_logo.png", "/images/SET_logo_dark.png",
+            "/styles.css", "/styles/**", "/images/**", "/js/**",
+            "/api/security/mode", "/api/health", "/swagger-ui/**", "/v3/api-docs/**"
     };
 
     private final SecurityModeProperties securityModeProperties;
     private final AuditingAuthenticationHandlers auditingAuthenticationHandlers;
     private final ApiKeySecurityProperties apiKeySecurityProperties;
-    private final ObjectMapper objectMapper;
-    private final String netAccountingSsoSecret;
+    private final NetAccountingTrustedLoginTokenService trustedLoginTokenService;
 
     public SecurityConfiguration(SecurityModeProperties securityModeProperties,
                                  AuditingAuthenticationHandlers auditingAuthenticationHandlers,
                                  ApiKeySecurityProperties apiKeySecurityProperties,
-                                 ObjectMapper objectMapper,
-                                 @Value("${netaccounting.m2m-xml-editor.sso-secret:${nav.xsdparsertool.api-key.value:}}") String netAccountingSsoSecret) {
+                                 NetAccountingTrustedLoginTokenService trustedLoginTokenService) {
         this.securityModeProperties = securityModeProperties;
         this.auditingAuthenticationHandlers = auditingAuthenticationHandlers;
         this.apiKeySecurityProperties = apiKeySecurityProperties;
-        this.objectMapper = objectMapper;
-        this.netAccountingSsoSecret = netAccountingSsoSecret;
+        this.trustedLoginTokenService = trustedLoginTokenService;
     }
 
     @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
+    public PasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(); }
 
     @Bean
     public DaoAuthenticationProvider localAuthenticationProvider(DatabaseUserDetailsService userDetailsService,
@@ -99,86 +78,47 @@ public class SecurityConfiguration {
         return http.build();
     }
 
-    private void configureStandalone(HttpSecurity http,
-                                     DaoAuthenticationProvider localAuthenticationProvider,
+    private void configureStandalone(HttpSecurity http, DaoAuthenticationProvider provider,
                                      SetupStateService setupStateService) throws Exception {
-        http.authenticationProvider(localAuthenticationProvider);
+        http.authenticationProvider(provider);
         configureCommon(http, setupStateService);
-        http
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
-                        .anyRequest().authenticated())
-                .formLogin(form -> form
-                        .loginPage("/login.html")
-                        .loginProcessingUrl("/login")
-                        .usernameParameter("username")
-                        .passwordParameter("password")
-                        .successHandler(auditingAuthenticationHandlers)
-                        .failureHandler(auditingAuthenticationHandlers)
-                        .permitAll())
-                .logout(logout -> logout
-                        .logoutUrl("/logout")
-                        .addLogoutHandler(auditingAuthenticationHandlers)
-                        .logoutSuccessUrl("/login.html?logout=true")
-                        .permitAll());
+        http.authorizeHttpRequests(auth -> auth.requestMatchers(PUBLIC_ENDPOINTS).permitAll().anyRequest().authenticated())
+                .formLogin(form -> form.loginPage("/login.html").loginProcessingUrl("/login")
+                        .usernameParameter("username").passwordParameter("password")
+                        .successHandler(auditingAuthenticationHandlers).failureHandler(auditingAuthenticationHandlers).permitAll())
+                .logout(logout -> logout.logoutUrl("/logout").addLogoutHandler(auditingAuthenticationHandlers)
+                        .logoutSuccessUrl("/login.html?logout=true").permitAll());
     }
 
-    private void configureMultiUser(HttpSecurity http,
-                                    DaoAuthenticationProvider localAuthenticationProvider,
+    private void configureMultiUser(HttpSecurity http, DaoAuthenticationProvider provider,
                                     SetupStateService setupStateService) throws Exception {
-        http.authenticationProvider(localAuthenticationProvider);
+        http.authenticationProvider(provider);
         configureCommon(http, setupStateService);
-        http
-                .authorizeHttpRequests(auth -> auth
+        http.authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
-                        .requestMatchers("/xml-index-config.html", "/api/xml-index-config/**")
-                        .hasAnyRole("ADMIN", "XML_INDEX_CONFIG_MANAGE")
-                        .requestMatchers(
-                                "/admin.html",
-                                "/configuration.html",
-                                "/console-log.html",
-                                "/audit-log.html",
-                                "/users.html",
-                                "/user-edit.html",
-                                "/api/admin/**",
-                                "/api/github-templates/local-delete",
-                                "/api/database/**",
-                                "/api/proxy-settings/**",
-                                "/api/m2m-proxy-settings/**",
-                                "/api/users/**",
-                                "/h2-console/**")
-                        .hasRole("ADMIN")
+                        .requestMatchers("/xml-index-config.html", "/api/xml-index-config/**").hasAnyRole("ADMIN", "XML_INDEX_CONFIG_MANAGE")
+                        .requestMatchers("/admin.html", "/configuration.html", "/console-log.html", "/audit-log.html",
+                                "/users.html", "/user-edit.html", "/api/admin/**", "/api/github-templates/local-delete",
+                                "/api/database/**", "/api/proxy-settings/**", "/api/m2m-proxy-settings/**",
+                                "/api/users/**", "/h2-console/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
-                .formLogin(form -> form
-                        .loginPage("/login.html")
-                        .loginProcessingUrl("/login")
-                        .usernameParameter("username")
-                        .passwordParameter("password")
-                        .successHandler(auditingAuthenticationHandlers)
-                        .failureHandler(auditingAuthenticationHandlers)
-                        .permitAll())
-                .logout(logout -> logout
-                        .logoutUrl("/logout")
-                        .addLogoutHandler(auditingAuthenticationHandlers)
-                        .logoutSuccessUrl("/login.html?logout=true")
-                        .permitAll());
+                .formLogin(form -> form.loginPage("/login.html").loginProcessingUrl("/login")
+                        .usernameParameter("username").passwordParameter("password")
+                        .successHandler(auditingAuthenticationHandlers).failureHandler(auditingAuthenticationHandlers).permitAll())
+                .logout(logout -> logout.logoutUrl("/logout").addLogoutHandler(auditingAuthenticationHandlers)
+                        .logoutSuccessUrl("/login.html?logout=true").permitAll());
     }
 
     private void configureCommon(HttpSecurity http, SetupStateService setupStateService) throws Exception {
-        http
-                .csrf(AbstractHttpConfigurer::disable)
+        http.csrf(AbstractHttpConfigurer::disable)
                 .headers(headers -> headers
                         .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)
                         .httpStrictTransportSecurity(hsts -> hsts.includeSubDomains(true).maxAgeInSeconds(31536000))
                         .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'")))
-                .sessionManagement(session -> session
-                        .invalidSessionUrl("/login.html?sessionExpired=true"))
-                .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint(new JsonAuthenticationEntryPoint())
+                .sessionManagement(session -> session.invalidSessionUrl("/login.html?sessionExpired=true"))
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(new JsonAuthenticationEntryPoint())
                         .accessDeniedHandler(new JsonAccessDeniedHandler()))
-                .addFilterAfter(
-                        new NetAccountingTrustedLoginFilter(objectMapper, netAccountingSsoSecret),
-                        SecurityContextHolderFilter.class)
+                .addFilterAfter(new NetAccountingTrustedLoginFilter(trustedLoginTokenService), SecurityContextHolderFilter.class)
                 .addFilterBefore(new SetupRequiredFilter(setupStateService), AnonymousAuthenticationFilter.class)
                 .addFilterBefore(new ApiKeyAuthenticationFilter(apiKeySecurityProperties), AnonymousAuthenticationFilter.class);
     }
