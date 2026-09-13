@@ -37,6 +37,7 @@ public class SecurityConfiguration {
             "/login.html",
             "/access-denied.html",
             "/login",
+            "/sso/trusted-login",
             "/favicon.ico",
             "/images/SET_logo.png",
             "/images/SET_logo_dark.png",
