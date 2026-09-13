@@ -7,15 +7,11 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.Ordered;
-import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import javax.crypto.Mac;
@@ -32,10 +28,12 @@ import java.util.regex.Pattern;
 
 /**
  * Rövid életű, HMAC-aláírt NetAccounting tokenből M2M webes munkamenetet hoz létre.
- * A token POST body-ban érkezik, így nem kerül URL query stringbe vagy access logba.
+ *
+ * <p>Fontos: ezt a filtert a SecurityConfiguration kifejezetten a Spring Security
+ * filter chain-be teszi. Nem önálló servlet filter bean, mert akkor a Spring
+ * Security későbbi SecurityContext betöltése felülírhatná az itt létrehozott
+ * authentication contextet.</p>
  */
-@Component
-@Order(Ordered.HIGHEST_PRECEDENCE + 10)
 public class NetAccountingTrustedLoginFilter extends OncePerRequestFilter {
 
     private static final String LOGIN_PATH = "/sso/trusted-login";
@@ -47,9 +45,7 @@ public class NetAccountingTrustedLoginFilter extends OncePerRequestFilter {
     private final ObjectMapper objectMapper;
     private final String configuredSecret;
 
-    public NetAccountingTrustedLoginFilter(
-            ObjectMapper objectMapper,
-            @Value("${netaccounting.m2m-xml-editor.sso-secret:${nav.xsdparsertool.api-key.value:}}") String configuredSecret) {
+    public NetAccountingTrustedLoginFilter(ObjectMapper objectMapper, String configuredSecret) {
         this.objectMapper = objectMapper;
         this.configuredSecret = configuredSecret == null ? "" : configuredSecret.trim();
     }
@@ -67,11 +63,13 @@ public class NetAccountingTrustedLoginFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "A trusted login csak POST kéréssel használható.");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED,
+                    "A trusted login csak POST kéréssel használható.");
             return;
         }
         if (configuredSecret.isBlank()) {
-            response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE, "A NetAccounting trusted login nincs konfigurálva.");
+            response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE,
+                    "A NetAccounting trusted login nincs konfigurálva.");
             return;
         }
 
@@ -162,7 +160,7 @@ public class NetAccountingTrustedLoginFilter extends OncePerRequestFilter {
         try {
             request.changeSessionId();
         } catch (IllegalStateException ignored) {
-            // Új session esetén egyes konténerek nem igénylik / nem engedik a cserét.
+            // Új session esetén nincs mit rotálni.
         }
         session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, context);
         session.setAttribute("netaccountingUserId", token.userId());
