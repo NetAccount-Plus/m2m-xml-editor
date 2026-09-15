@@ -9,6 +9,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.core.env.AbstractEnvironment;
 import org.springframework.core.env.Environment;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 /**
  * A külső konfiguráció kapcsolódó beállításait típusosan összefogó konfigurációs modell.
  *
@@ -82,10 +85,15 @@ public class PathConfigurationProperties {
     /**
      * A {@code logConfiguration} művelet a komponens felelősségi körébe tartozó feldolgozási lépést hajtja végre.
      *
-     * <p>A konfigurációs értékeket a web modul érvényes beállításaihoz igazítja, és az esetleges alapértelmezéseket csak a komponensben definiált szabályok szerint alkalmazza.</p>
+     * <p>A UIModel gyökér konfigurációs könyvtár, nem kötelezően előre feltöltött artefaktumtár. A NAV sablon-repository-k
+     * nem minden űrlaphoz publikálnak UIModelt, ezért a konfigurált UIModel gyökeret induláskor létrehozzuk, ha hiányzik.
+     * Ettől az XSD-alapú általános űrlaprenderelés UIModel nélkül is használható marad, miközben a később letöltött
+     * UIModel fájlok ugyanebbe a gyökérbe telepíthetők.</p>
      */
     @PostConstruct
     public void logConfiguration() {
+        ensureUiModelDirectory();
+
         log.debug("==== PathConfigurationProperties LOADED ====");
         log.debug("schemaDir     = {}", schemaDir);
         log.debug("commonXsdDir  = {}", commonXsdDir);
@@ -95,6 +103,19 @@ public class PathConfigurationProperties {
         log.debug("ENV nav.xsdparsertool.paths.ui-model-dir    = {}", environment.getProperty("nav.xsdparsertool.paths.ui-model-dir"));
         if (environment instanceof AbstractEnvironment ae) {
             ae.getPropertySources().forEach(ps -> log.debug("PROPERTY SOURCE: {} ({})", ps.getName(), ps.getClass().getName()));
+        }
+    }
+
+    private void ensureUiModelDirectory() {
+        if (uiModelDir == null || uiModelDir.isBlank()) {
+            return;
+        }
+        Path directory = Path.of(uiModelDir.trim()).toAbsolutePath().normalize();
+        try {
+            Files.createDirectories(directory);
+            log.info("UIModel gyökérkönyvtár elérhető: {}", directory);
+        } catch (Exception ex) {
+            log.warn("A konfigurált UIModel gyökérkönyvtár nem hozható létre: {}", directory, ex);
         }
     }
 }
