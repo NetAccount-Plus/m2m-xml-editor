@@ -10,8 +10,18 @@ export function createXmlSessionUi({ elements, getState, setState, callbacks }){
   let lockReleasePollTimer = null;
   const shownLockReleaseRequestIds = new Set();
 
+  function getEditorSessionIdFromQuery(){
+    const params = new URLSearchParams(window.location.search || '');
+    return params.get('editorSessionId');
+  }
+
+  function isNetAccountingEditorSession(){
+    return !!getEditorSessionIdFromQuery();
+  }
+
   function startActiveSessionPolling(){
     stopActiveSessionPolling();
+    if(isNetAccountingEditorSession()) return;
     const state = getState();
     if(!state.currentActiveXmlFile?.id || !state.currentActiveXmlFileSessionId) return;
     activeSessionPollTimer = setInterval(checkActiveSessionState, 10000);
@@ -22,6 +32,7 @@ export function createXmlSessionUi({ elements, getState, setState, callbacks }){
   }
 
   async function checkActiveSessionState(){
+    if(isNetAccountingEditorSession()) return;
     const state = getState();
     if(!state.currentActiveXmlFile?.id || !state.currentActiveXmlFileSessionId) return;
     try{
@@ -38,6 +49,7 @@ export function createXmlSessionUi({ elements, getState, setState, callbacks }){
   }
 
   function startLockReleaseRequestPolling(){
+    if(isNetAccountingEditorSession()) return;
     if(lockReleasePollTimer || !document.body || document.body.dataset.initialTab !== 'formTab') return;
     lockReleasePollTimer = setInterval(checkPendingLockReleaseRequests, 8000);
   }
@@ -47,6 +59,7 @@ export function createXmlSessionUi({ elements, getState, setState, callbacks }){
   }
 
   async function checkPendingLockReleaseRequests(){
+    if(isNetAccountingEditorSession()) return;
     try{
       const response = await fetch('/api/xml-files/lock-release-requests/pending', { cache:'no-store', credentials:'same-origin' });
       if(!response.ok) return;
@@ -86,6 +99,20 @@ export function createXmlSessionUi({ elements, getState, setState, callbacks }){
   function hideInitialLargeXmlProcess(){ const overlay = document.getElementById('largeXmlProcessOverlay'); if(overlay) overlay.hidden = true; }
 
   async function autoLoadNetAccountingSession(editorSessionId){
+    // A NetAccounting editor-session nem az M2M saját XML-fájltárának munkamenete.
+    // Töröljük az esetleg korábbról bent maradt fájltári session állapotot, nehogy
+    // a hagyományos fizikai-fájl workflow belekeveredjen a rövid életű editor sessionbe.
+    stopActiveSessionPolling();
+    stopLockReleaseRequestPolling();
+    try{ sessionStorage.removeItem('navXsdToolActiveXmlFile'); }catch(_ignored){}
+    setState({ currentActiveXmlFile:null, currentActiveXmlFileSessionId:null, currentXmlFileReadOnlyMode:false });
+    if(document.body){
+      document.body.dataset.netAccountingEditorSession = 'true';
+      document.body.classList.remove('xml-file-readonly-mode');
+    }
+    callbacks.updateCloseActiveXmlButton?.();
+    callbacks.updateFormNavigationLinks?.();
+
     const infoResponse = await fetch(`/api/netaccounting/editor-sessions/${encodeURIComponent(editorSessionId)}`, { cache:'no-store', credentials:'same-origin' });
     const info = await infoResponse.json().catch(() => ({}));
     if(!infoResponse.ok) throw new Error(info.message || info.error || 'A NetAccounting XML munkamenet nem tölthető be.');
@@ -115,12 +142,35 @@ export function createXmlSessionUi({ elements, getState, setState, callbacks }){
     }
   }
 
+  async function showNetAccountingLoadError(error){
+    console.error('NetAccounting editor-session automatikus betöltési hiba', error);
+    const message = String(error?.message || 'A NetAccounting XML Editor munkamenet nem tölthető be.');
+    if(typeof window.navInfo === 'function'){
+      await window.navInfo({
+        title:'A NetAccounting XML nem nyitható meg',
+        eyebrow:'M2M editor hiba',
+        message,
+        cancelText:'Bezárás',
+        variant:'error'
+      });
+    }else{
+      callbacks.showMessage(message, 'error');
+    }
+  }
+
   async function autoLoadFromQuery(){
     const params = new URLSearchParams(window.location.search || '');
     const editorSessionId = params.get('editorSessionId');
     if(!xmlPathInput || !document.body || document.body.dataset.initialTab !== 'formTab') return;
     if(editorSessionId){
-      await autoLoadNetAccountingSession(editorSessionId);
+      try{
+        await autoLoadNetAccountingSession(editorSessionId);
+      }catch(error){
+        // A NetAccounting session hibáját itt kezeljük. Nem engedjük tovább a
+        // hagyományos Űrlapállomány hibakezeléshez, mert az tévesen fizikai XML
+        // fájl hiányaként jelenítené meg például az XSD-konfigurációs hibákat is.
+        await showNetAccountingLoadError(error);
+      }
       return;
     }
 
