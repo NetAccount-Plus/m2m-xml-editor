@@ -46,9 +46,11 @@ public class ContextPathStaticResourceFilter extends OncePerRequestFilter {
     /*
      * JS-ben szándékosan nem írunk át minden '/'-rel kezdődő stringet, mert
      * azok XPath kifejezések is lehetnek. Csak ismert webes URL mintákhoz nyúlunk.
+     * A quote-ok mellett a template literal (`) is támogatott, mert a frontend
+     * dinamikus importjai ilyen URL-eket is használnak.
      */
     private static final Pattern JS_ROOT_URL = Pattern.compile(
-            "([\\\"'])/(?!/)(api/|js/|styles/|images/|login(?:\\.html)?(?:[/?#]|(?=[\\\"']))|logout(?:[/?#]|(?=[\\\"']))|[A-Za-z0-9._-]+\\.html(?:[?#]|(?=[\\\"'])))");
+            "([\\\"'`])/(?!/)(api/|js/|styles/|images/|login(?:\\.html)?(?:[/?#]|(?=[\\\"'`]))|logout(?:[/?#]|(?=[\\\"'`]))|[A-Za-z0-9._-]+\\.html(?:[?#]|(?=[\\\"'`])))");
 
     private static final Pattern CSS_ROOT_URL = Pattern.compile(
             "(?i)(url\\(\\s*[\\\"']?)/(?!/)");
