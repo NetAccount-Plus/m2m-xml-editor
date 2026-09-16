@@ -11,6 +11,7 @@ import { initXpathValidation } from './validation/xpath-validation.js';
 import { initXsdValidation } from './validation/xsd-validation.js';
 import { initM2mUi } from './m2m/m2m-submission-ui.js';
 import { installRuntimeBridge } from './runtime/runtime-bridge.js';
+import { initNetAccountingInlineValidation } from './netaccounting-validation-inline.js';
 
 /**
  * A <code>bootstrapFrontendModules</code> függvény a webes frontend folyamat egy önálló feldolgozási lépését valósítja meg.
@@ -25,6 +26,7 @@ function bootstrapFrontendModules(){
   initXpathValidation();
   registerFormShortcuts();
   initM2mUi();
+  initNetAccountingInlineValidation();
 }
 
 /**
