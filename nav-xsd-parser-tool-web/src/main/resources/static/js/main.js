@@ -7,7 +7,7 @@
 import { syncStateFromRuntime } from './core/app-state.js';
 import { initFormToolbar } from './form/form-toolbar.js';
 import { registerFormShortcuts } from './form/form-shortcuts.js';
-import { initNetAccountingSaveReturnButton } from './form/netaccounting-save-return.js';
+import { initNetAccountingSaveReturnButton, isNetAccountingEditorSession } from './form/netaccounting-save-return.js';
 import { initXpathValidation } from './validation/xpath-validation.js';
 import { initXsdValidation } from './validation/xsd-validation.js';
 import { initM2mUi } from './m2m/m2m-submission-ui.js';
@@ -27,7 +27,9 @@ function bootstrapFrontendModules(){
   initXsdValidation();
   initXpathValidation();
   registerFormShortcuts();
-  initM2mUi();
+  if(!isNetAccountingEditorSession()){
+    initM2mUi();
+  }
   initNetAccountingInlineValidation();
 }
 
