@@ -1,9 +1,12 @@
 @import url("./nav-application-theme-base.css");
 
 /*
- * NetAccounting visual integration layer.
- * Keeps the existing editor DOM, IDs and JavaScript behavior intact and
- * only aligns the visual language with the NetAccounting modern UI.
+ * NetAccounting viewer integration layer.
+ *
+ * The embedded M2M editor is used from NetAccounting as a focused form viewer.
+ * Keep the editor DOM, IDs and JavaScript behavior intact; this file only
+ * changes presentation and removes application-level/technical chrome from
+ * the form viewer page.
  */
 
 body.nav-application-theme {
@@ -31,130 +34,304 @@ body.nav-application-theme {
   --na-table-row-hover: #e2ebed;
   --na-radius-sm: 5px;
   --na-radius-md: 8px;
+  --na-radius-lg: 11px;
   --na-shadow-sm: 0 2px 6px rgba(18, 38, 46, .08);
   --na-shadow-md: 0 8px 24px rgba(18, 38, 46, .14);
 
+  /* Compatibility aliases used by the original editor styles. */
   --nav-theme-primary: var(--na-primary);
   --nav-theme-primary-dark: var(--na-primary-hover);
   --nav-theme-primary-light: #e5eee9;
   --nav-theme-border: var(--na-border);
   --nav-theme-success: var(--na-success);
-  --nav-theme-success-light: #e8f1ed;
-  --nav-theme-success-border: #a9c9ba;
+  --nav-theme-success-light: #e7f2ec;
+  --nav-theme-success-border: #a8c9b7;
   --nav-theme-error: var(--na-danger);
-  --nav-theme-error-light: #f6eaea;
-  --nav-theme-error-border: #ddb4b4;
+  --nav-theme-error-light: #f8eaea;
+  --nav-theme-error-border: #ddb2b2;
   --nav-theme-background: var(--na-page-bg);
   --nav-theme-panel: var(--na-surface-raised);
   --nav-theme-subtle: var(--na-surface);
   --nav-theme-muted: var(--na-text-muted);
-  --nav-theme-line: var(--na-border);
+  --nav-theme-line: rgba(36, 52, 59, .13);
   --primary: var(--na-primary);
   --primary-strong: var(--na-primary-hover);
   --surface: var(--na-surface-raised);
-  --surface-muted: var(--na-surface-muted);
+  --surface-muted: var(--na-surface);
   --text-color: var(--na-text);
   --text-muted: var(--na-text-muted);
   --border: var(--na-border);
   --border-color: var(--na-border);
-  --nav-border: var(--na-border);
   --muted: var(--na-text-muted);
-  --muted-text: var(--na-text-muted);
 
-  background: var(--na-page-bg) !important;
-  color: var(--na-text) !important;
-  font-family: var(--na-font-family) !important;
-  font-size: 13px !important;
+  margin: 0;
+  min-height: 100vh;
+  background: var(--na-page-bg);
+  color: var(--na-text);
+  font-family: var(--na-font-family);
+  font-size: 13px;
 }
 
-body.nav-application-theme .site-header,
-body.nav-application-theme .site-header-inner {
-  background: var(--na-surface-raised) !important;
-  border-color: var(--na-border) !important;
+body.nav-application-theme *,
+body.nav-application-theme *::before,
+body.nav-application-theme *::after {
+  box-sizing: border-box;
 }
 
-body.nav-application-theme .site-header {
-  box-shadow: 0 1px 4px rgba(18, 38, 46, .08) !important;
+/* -----------------------------------------------------------------------
+ * Focused NetAccounting form viewer
+ * -------------------------------------------------------------------- */
+
+/* The editor is opened from NetAccounting, so its own application menu is
+   redundant. Only the actual form viewer remains visible. */
+body.nav-application-theme[data-initial-tab="formTab"] .site-header {
+  display: none !important;
 }
 
-body.nav-application-theme .site-brand {
-  border-right-color: var(--na-border) !important;
+body.nav-application-theme[data-initial-tab="formTab"] {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--na-page-bg);
 }
 
-body.nav-application-theme .classic-nav .tab-button {
-  color: var(--na-text-muted) !important;
-  font-family: var(--na-font-family) !important;
-  font-weight: 500 !important;
-}
-
-body.nav-application-theme .classic-nav .tab-button:hover {
-  background: var(--na-surface-hover) !important;
-  color: var(--na-primary) !important;
-}
-
-body.nav-application-theme .header-nav .tab-button.active,
-body.nav-application-theme .classic-nav .tab-button.active,
-body.nav-application-theme .tabs .tab-button.active {
-  border-bottom-color: var(--na-primary) !important;
-  color: var(--na-primary) !important;
-  font-weight: 650 !important;
-}
-
-body.nav-application-theme .app-shell {
+body.nav-application-theme[data-initial-tab="formTab"] .app-shell {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 10px 12px 14px !important;
+  gap: 0 !important;
+  overflow: hidden;
   background: var(--na-page-bg) !important;
 }
 
-body.nav-application-theme .panel-card,
-body.nav-application-theme .home-hero-card,
-body.nav-application-theme .home-markdown,
-body.nav-application-theme .input-card,
-body.nav-application-theme .result-card,
-body.nav-application-theme .admin-card,
-body.nav-application-theme .markdown-card,
-body.nav-application-theme .status-tile,
-body.nav-application-theme .admin-tile {
-  border-color: var(--na-border) !important;
+body.nav-application-theme[data-initial-tab="formTab"] #formTab {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body.nav-application-theme[data-initial-tab="formTab"] #formTab .split-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100% !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 1px solid var(--na-border) !important;
   border-radius: var(--na-radius-md) !important;
   background: var(--na-surface-raised) !important;
   box-shadow: var(--na-shadow-sm) !important;
+  overflow: hidden;
+}
+
+/* Document header */
+body.nav-application-theme[data-initial-tab="formTab"] .form-layout-header {
+  flex: 0 0 auto;
+  min-height: 48px;
+  margin: 0 !important;
+  padding: 7px 12px !important;
+  align-items: center !important;
+  gap: 10px !important;
+  border-bottom: 1px solid var(--na-border) !important;
+  background: var(--na-surface-raised) !important;
+}
+
+body.nav-application-theme[data-initial-tab="formTab"] #formViewHeading,
+body.nav-application-theme[data-initial-tab="formTab"] .form-heading-primary {
+  margin: 0;
+  color: var(--na-primary) !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+}
+
+body.nav-application-theme[data-initial-tab="formTab"] .form-heading-meta {
+  color: var(--na-text-muted) !important;
+}
+
+body.nav-application-theme[data-initial-tab="formTab"] .form-heading-meta > span {
+  border-color: var(--na-border) !important;
+  background: var(--na-surface) !important;
+  color: var(--na-text-muted) !important;
+}
+
+body.nav-application-theme[data-initial-tab="formTab"] .form-heading-meta > span:first-child {
+  background: #e5eee9 !important;
+  color: var(--na-primary) !important;
+  font-weight: 700 !important;
+}
+
+/* Viewer-specific actions are retained, but use NetAccounting controls. */
+body.nav-application-theme[data-initial-tab="formTab"] .form-layout-actions {
+  gap: 6px !important;
+  flex-wrap: nowrap !important;
 }
 
 body.nav-application-theme button,
-body.nav-application-theme input,
-body.nav-application-theme select,
-body.nav-application-theme textarea {
+body.nav-application-theme .button-like,
+body.nav-application-theme .mini-button {
+  border-radius: var(--na-radius-sm) !important;
   font-family: var(--na-font-family) !important;
 }
 
 body.nav-application-theme button.primary,
-body.nav-application-theme .primary,
-body.nav-application-theme .primary-button,
-body.nav-application-theme .toolbar-action.primary {
+body.nav-application-theme .primary {
   border-color: var(--na-primary) !important;
   background: var(--na-primary) !important;
   color: #fff !important;
 }
 
-body.nav-application-theme button.primary:hover:not(:disabled),
-body.nav-application-theme .primary:hover:not(:disabled),
-body.nav-application-theme .primary-button:hover:not(:disabled),
-body.nav-application-theme .toolbar-action.primary:hover:not(:disabled) {
+body.nav-application-theme button.primary:hover,
+body.nav-application-theme .primary:hover {
   border-color: var(--na-primary-hover) !important;
   background: var(--na-primary-hover) !important;
 }
 
 body.nav-application-theme button.secondary,
 body.nav-application-theme .secondary {
-  border-color: var(--na-border-strong) !important;
+  border-color: var(--na-border) !important;
   background: var(--na-surface-raised) !important;
   color: var(--na-text) !important;
 }
 
-body.nav-application-theme button.secondary:hover:not(:disabled),
-body.nav-application-theme .secondary:hover:not(:disabled) {
-  border-color: var(--na-primary) !important;
-  background: var(--na-surface-hover) !important;
+body.nav-application-theme[data-initial-tab="formTab"] .xml-close-active-button {
+  border-color: #ddb2b2 !important;
+  background: #f8eaea !important;
+  color: var(--na-danger) !important;
+}
+
+/* Compact operation bar. It stays available because these actions belong to
+   the viewer itself, not to the removed application navigation. */
+body.nav-application-theme[data-initial-tab="formTab"] .form-unified-toolbar {
+  flex: 0 0 auto;
+  width: 100%;
+  min-height: 38px !important;
+  margin: 0 !important;
+  padding: 5px 10px !important;
+  gap: 4px !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--na-border) !important;
+  border-radius: 0 !important;
+  background: var(--na-surface) !important;
+  box-shadow: none !important;
+}
+
+body.nav-application-theme[data-initial-tab="formTab"] .form-unified-toolbar .mini-button,
+body.nav-application-theme[data-initial-tab="formTab"] .form-unified-toolbar .xml-icon-button,
+body.nav-application-theme[data-initial-tab="formTab"] .form-unified-toolbar .form-icon-button,
+body.nav-application-theme[data-initial-tab="formTab"] .form-unified-toolbar .xpath-current-validation-button {
+  min-height: 28px !important;
+  height: 28px !important;
+  border: 1px solid var(--na-border) !important;
+  border-radius: var(--na-radius-sm) !important;
+  background: var(--na-surface-raised) !important;
+  color: var(--na-text) !important;
+  box-shadow: none !important;
+}
+
+body.nav-application-theme[data-initial-tab="formTab"] #validateCurrentXmlButton {
+  border-color: #a8c9b7 !important;
+  background: #e7f2ec !important;
   color: var(--na-primary) !important;
+}
+
+body.nav-application-theme[data-initial-tab="formTab"] #formXPathValidateButton {
+  border-color: #b7c9d3 !important;
+  background: #edf3f6 !important;
+  color: var(--na-info) !important;
+}
+
+body.nav-application-theme[data-initial-tab="formTab"] .field-search-input {
+  height: 28px !important;
+  min-height: 28px !important;
+  border: 1px solid var(--na-border) !important;
+  border-radius: var(--na-radius-sm) !important;
+  background: var(--na-surface-raised) !important;
+  color: var(--na-text) !important;
+}
+
+/* Main form area */
+body.nav-application-theme[data-initial-tab="formTab"] #formTab .split-container {
+  flex: 1 1 auto;
+  min-height: 0 !important;
+  height: 0 !important;
+  gap: 0 !important;
+  border: 0 !important;
+  background: var(--na-surface-raised) !important;
+  overflow: hidden;
+}
+
+body.nav-application-theme[data-initial-tab="formTab"] .form-pane {
+  min-width: 320px;
+  border: 0 !important;
+  background: var(--na-surface-raised) !important;
+  box-shadow: none !important;
+}
+
+body.nav-application-theme[data-initial-tab="formTab"] .xml-pane {
+  border: 0 !important;
+  background: var(--na-surface-raised) !important;
+  box-shadow: none !important;
+}
+
+body.nav-application-theme[data-initial-tab="formTab"] .splitter {
+  background: var(--na-surface-muted) !important;
+  border-color: var(--na-border) !important;
+}
+
+body.nav-application-theme[data-initial-tab="formTab"] .pane-header,
+body.nav-application-theme[data-initial-tab="formTab"] .xml-pane-header {
+  border-bottom: 1px solid var(--na-border) !important;
+  background: var(--na-surface) !important;
+  color: var(--na-text) !important;
+}
+
+body.nav-application-theme[data-initial-tab="formTab"] .form-pane-scroll {
+  padding: 12px 14px !important;
+  background: var(--na-surface) !important;
+}
+
+body.nav-application-theme[data-initial-tab="formTab"] .xml-pane-scroll,
+body.nav-application-theme[data-initial-tab="formTab"] .xml-pane-toolbar,
+body.nav-application-theme[data-initial-tab="formTab"] .xml-source-editor,
+body.nav-application-theme[data-initial-tab="formTab"] .xml-source-highlight {
+  background: #f6f8f8 !important;
+}
+
+/* Form cards and field groups */
+body.nav-application-theme[data-initial-tab="formTab"] .uimodel-section-card,
+body.nav-application-theme[data-initial-tab="formTab"] .form-section,
+body.nav-application-theme[data-initial-tab="formTab"] .multiform-detail-card,
+body.nav-application-theme[data-initial-tab="formTab"] .uimodel-form-hero {
+  border: 1px solid var(--na-border) !important;
+  border-radius: var(--na-radius-md) !important;
+  background: var(--na-surface-raised) !important;
+  box-shadow: none !important;
+  overflow: hidden;
+}
+
+body.nav-application-theme[data-initial-tab="formTab"] .uimodel-section-header,
+body.nav-application-theme[data-initial-tab="formTab"] .form-section > .collapse-toggle,
+body.nav-application-theme[data-initial-tab="formTab"] .multiform-detail-card > .uimodel-section-header {
+  border-bottom: 1px solid var(--na-border) !important;
+  background: var(--na-surface-muted) !important;
+  color: var(--na-primary) !important;
+}
+
+body.nav-application-theme[data-initial-tab="formTab"] .uimodel-section-number,
+body.nav-application-theme[data-initial-tab="formTab"] .form-section-number,
+body.nav-application-theme[data-initial-tab="formTab"] .section-number {
+  background: var(--na-primary) !important;
+  border-color: var(--na-primary) !important;
+  color: #fff !important;
+}
+
+body.nav-application-theme[data-initial-tab="formTab"] .uimodel-section-header h3,
+body.nav-application-theme[data-initial-tab="formTab"] .block-title > span:first-child {
+  color: var(--na-primary) !important;
+  font-weight: 700 !important;
 }
 
 body.nav-application-theme input[type="text"],
@@ -165,204 +342,129 @@ body.nav-application-theme input[type="password"],
 body.nav-application-theme select,
 body.nav-application-theme textarea {
   min-height: 33px;
-  border-color: var(--na-border-strong) !important;
+  border: 1px solid var(--na-border) !important;
   border-radius: var(--na-radius-sm) !important;
   background: var(--na-surface-raised) !important;
   color: var(--na-text) !important;
+  font-family: var(--na-font-family) !important;
+  font-size: 13px !important;
+  box-shadow: none !important;
 }
 
 body.nav-application-theme input:focus,
 body.nav-application-theme select:focus,
 body.nav-application-theme textarea:focus {
   border-color: var(--na-focus) !important;
-  box-shadow: 0 0 0 2px rgba(82, 127, 109, .18) !important;
+  outline: 0 !important;
+  box-shadow: 0 0 0 2px rgba(82, 127, 109, .16) !important;
 }
 
-body.nav-application-theme h1,
-body.nav-application-theme h2,
-body.nav-application-theme h3,
-body.nav-application-theme .eyebrow {
-  color: var(--na-primary) !important;
+body.nav-application-theme[data-initial-tab="formTab"] input[type="checkbox"] {
+  accent-color: var(--na-primary);
 }
 
+body.nav-application-theme[data-initial-tab="formTab"] .form-field.field-selected,
+body.nav-application-theme[data-initial-tab="formTab"] .uimodel-field.field-selected {
+  background: #e5eee9 !important;
+  box-shadow: 0 0 0 2px rgba(49, 95, 77, .14) !important;
+}
+
+body.nav-application-theme[data-initial-tab="formTab"] .xsd-invalid-field,
+body.nav-application-theme[data-initial-tab="formTab"] .form-field.xsd-invalid-field,
+body.nav-application-theme[data-initial-tab="formTab"] .uimodel-field.xsd-invalid-field {
+  background: #f8eaea !important;
+}
+
+/* Tables follow the NetAccounting modern table language. */
 body.nav-application-theme table thead th {
   background: var(--na-table-header) !important;
   color: #fff !important;
-  border-color: var(--na-border-strong) !important;
+  border-color: var(--na-table-header) !important;
 }
 
-body.nav-application-theme table tbody td {
-  border-color: var(--na-border) !important;
+body.nav-application-theme table tbody tr:nth-child(odd) td {
+  background: var(--na-table-row) !important;
 }
 
 body.nav-application-theme table tbody tr:nth-child(even) td {
-  background: var(--na-table-row-alt);
+  background: var(--na-table-row-alt) !important;
 }
 
 body.nav-application-theme table tbody tr:hover td {
   background: var(--na-table-row-hover) !important;
 }
 
-/* Editor page ------------------------------------------------------------ */
-body.nav-application-theme[data-initial-tab="formTab"] .app-shell,
-body.nav-application-theme[data-initial-tab="formTab"] #formTab .split-card,
-body.nav-application-theme[data-initial-tab="formTab"] #formTab .split-container {
-  background: var(--na-surface) !important;
+/* -----------------------------------------------------------------------
+ * Technical validation panels
+ * --------------------------------------------------------------------
+ * These panels are useful for standalone diagnostics, but are redundant in
+ * the NetAccounting embedded viewer. Validation may still run; only the
+ * developer-oriented detail panels are hidden from this screen.
+ */
+body.nav-application-theme[data-initial-tab="formTab"] .xsd-validation-drawer,
+body.nav-application-theme[data-initial-tab="formTab"] .xpath-validation-drawer,
+body.nav-application-theme[data-initial-tab="formTab"] .xpath-floating-popup,
+body.nav-application-theme[data-initial-tab="formTab"] .xsd-floating-popup,
+body.nav-application-theme[data-initial-tab="formTab"] .validation-drawer-backdrop,
+body.nav-application-theme[data-initial-tab="formTab"] .drawer-backdrop {
+  display: none !important;
 }
 
-body.nav-application-theme[data-initial-tab="formTab"] .form-layout-header,
-body.nav-application-theme[data-initial-tab="formTab"] .form-unified-toolbar,
-body.nav-application-theme[data-initial-tab="formTab"] .pane-header,
-body.nav-application-theme[data-initial-tab="formTab"] .xml-pane-header,
-body.nav-application-theme[data-initial-tab="formTab"] .xml-pane-toolbar {
-  border-color: var(--na-border) !important;
-  background: var(--na-surface-raised) !important;
+/* The XSD/XPath detail panels may be injected as fixed positioned elements.
+   Suppress their common IDs as a fallback without affecting the validation
+   buttons or background validation logic. */
+body.nav-application-theme[data-initial-tab="formTab"] #xsdValidationDrawer,
+body.nav-application-theme[data-initial-tab="formTab"] #xpathValidationDrawer,
+body.nav-application-theme[data-initial-tab="formTab"] #xpathFloatingPopup,
+body.nav-application-theme[data-initial-tab="formTab"] #xsdFloatingPopup {
+  display: none !important;
 }
 
-body.nav-application-theme[data-initial-tab="formTab"] .form-layout-header #formViewHeading,
-body.nav-application-theme[data-initial-tab="formTab"] .form-heading-primary,
-body.nav-application-theme[data-initial-tab="formTab"] .uimodel-form-hero h3,
-body.nav-application-theme[data-initial-tab="formTab"] .uimodel-section-header h3,
-body.nav-application-theme[data-initial-tab="formTab"] .block-title > span:first-child {
-  color: var(--na-primary) !important;
+/* Footer is application chrome as well; NetAccounting owns the surrounding
+   navigation and page context. */
+body.nav-application-theme[data-initial-tab="formTab"] .app-footer {
+  display: none !important;
 }
 
-body.nav-application-theme[data-initial-tab="formTab"] .form-pane,
-body.nav-application-theme[data-initial-tab="formTab"] .xml-pane {
-  background: var(--na-surface-raised) !important;
-}
+@media (max-width: 900px) {
+  body.nav-application-theme[data-initial-tab="formTab"] {
+    overflow: auto;
+  }
 
-body.nav-application-theme[data-initial-tab="formTab"] .form-pane {
-  border-right-color: var(--na-border) !important;
-}
+  body.nav-application-theme[data-initial-tab="formTab"] .app-shell,
+  body.nav-application-theme[data-initial-tab="formTab"] #formTab,
+  body.nav-application-theme[data-initial-tab="formTab"] #formTab .split-card {
+    height: auto !important;
+    overflow: visible;
+  }
 
-body.nav-application-theme[data-initial-tab="formTab"] .form-pane-scroll {
-  background: var(--na-surface) !important;
-}
+  body.nav-application-theme[data-initial-tab="formTab"] #formTab .split-container {
+    height: auto !important;
+    flex-direction: column;
+  }
 
-body.nav-application-theme[data-initial-tab="formTab"] .xml-pane-scroll,
-body.nav-application-theme[data-initial-tab="formTab"] .xml-source-editor,
-body.nav-application-theme[data-initial-tab="formTab"] .xml-source-highlight {
-  background: #f7f9f9 !important;
-}
+  body.nav-application-theme[data-initial-tab="formTab"] .form-pane,
+  body.nav-application-theme[data-initial-tab="formTab"] .xml-pane {
+    width: 100% !important;
+    min-height: 420px;
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--na-border) !important;
+  }
 
-body.nav-application-theme[data-initial-tab="formTab"] .splitter {
-  background: var(--na-surface-muted) !important;
-  border-color: var(--na-border) !important;
-}
+  body.nav-application-theme[data-initial-tab="formTab"] .splitter {
+    width: 100%;
+    height: 5px;
+    flex-basis: 5px;
+  }
 
-body.nav-application-theme[data-initial-tab="formTab"] .splitter:hover,
-body.nav-application-theme[data-initial-tab="formTab"] .splitter:focus {
-  background: #c7d8d0 !important;
-}
+  body.nav-application-theme[data-initial-tab="formTab"] .form-layout-header {
+    align-items: flex-start !important;
+    flex-direction: column;
+  }
 
-body.nav-application-theme[data-initial-tab="formTab"] .uimodel-form-hero,
-body.nav-application-theme[data-initial-tab="formTab"] .uimodel-section-card,
-body.nav-application-theme[data-initial-tab="formTab"] .form-section,
-body.nav-application-theme[data-initial-tab="formTab"] .multiform-detail-card {
-  border-color: var(--na-border) !important;
-  background: var(--na-surface-raised) !important;
-}
-
-body.nav-application-theme[data-initial-tab="formTab"] .uimodel-section-header,
-body.nav-application-theme[data-initial-tab="formTab"] .form-section > .collapse-toggle,
-body.nav-application-theme[data-initial-tab="formTab"] .multiform-detail-card > .uimodel-section-header,
-body.nav-application-theme .form-section-header,
-body.nav-application-theme .section-header,
-body.nav-application-theme .block-header,
-body.nav-application-theme .field-group-header {
-  background: var(--na-surface-muted) !important;
-  border-color: var(--na-border) !important;
-}
-
-body.nav-application-theme[data-initial-tab="formTab"] .uimodel-section-number,
-body.nav-application-theme .form-section-number,
-body.nav-application-theme .section-number {
-  background: var(--na-primary) !important;
-  border-color: var(--na-primary) !important;
-  color: #fff !important;
-}
-
-body.nav-application-theme[data-initial-tab="formTab"] .uimodel-label-text,
-body.nav-application-theme[data-initial-tab="formTab"] .field-label-text,
-body.nav-application-theme[data-initial-tab="formTab"] .field-label-link,
-body.nav-application-theme .field-label,
-body.nav-application-theme label,
-body.nav-application-theme .form-field-label {
-  color: var(--na-text-muted) !important;
-}
-
-body.nav-application-theme[data-initial-tab="formTab"] .form-field.field-selected,
-body.nav-application-theme[data-initial-tab="formTab"] .uimodel-field.field-selected,
-body.nav-application-theme[data-initial-tab="formTab"] .xml-node.selected > .xml-line {
-  background: #e5eee9 !important;
-  box-shadow: 0 0 0 2px rgba(82, 127, 109, .14) !important;
-}
-
-body.nav-application-theme[data-initial-tab="formTab"] .xml-tag {
-  color: var(--na-primary) !important;
-}
-
-body.nav-application-theme[data-initial-tab="formTab"] .xml-value {
-  color: var(--na-success) !important;
-}
-
-body.nav-application-theme[data-initial-tab="formTab"] #validateCurrentXmlButton,
-body.nav-application-theme .success-button,
-body.nav-application-theme button.success,
-body.nav-application-theme .toolbar-action.success {
-  border-color: #9fc5b2 !important;
-  background: #e8f1ed !important;
-  color: var(--na-success) !important;
-}
-
-body.nav-application-theme[data-initial-tab="formTab"] #saveXmlFileButton,
-body.nav-application-theme[data-initial-tab="formTab"] #quickSaveXmlFileButton,
-body.nav-application-theme[data-initial-tab="formTab"] .m2m-submit-menu-button,
-body.nav-application-theme[data-initial-tab="formTab"] #formXPathValidateButton,
-body.nav-application-theme[data-initial-tab="formTab"] #uiModelDetailsToggle,
-body.nav-application-theme[data-initial-tab="formTab"] #toggleEmptyUiModelFieldsButton,
-body.nav-application-theme[data-initial-tab="formTab"] #toggleAllFormCollapseButton {
-  border-color: var(--na-border-strong) !important;
-  background: var(--na-surface-raised) !important;
-  color: var(--na-primary) !important;
-}
-
-body.nav-application-theme[data-initial-tab="formTab"] #uiModelDetailsToggle.active,
-body.nav-application-theme[data-initial-tab="formTab"] #toggleEmptyUiModelFieldsButton.active {
-  border-color: var(--na-primary) !important;
-  background: #e5eee9 !important;
-  color: var(--na-primary) !important;
-  box-shadow: inset 0 0 0 1px rgba(49, 95, 77, .12), 0 2px 5px rgba(49, 95, 77, .12) !important;
-}
-
-body.nav-application-theme[data-initial-tab="formTab"] #prettyPrintXmlButton {
-  border-color: #d7bd8f !important;
-  background: #f7f1e7 !important;
-  color: var(--na-warning) !important;
-}
-
-body.nav-application-theme[data-initial-tab="formTab"] #applyXmlSourceButton {
-  border-color: #abc0cc !important;
-  background: #edf2f4 !important;
-  color: var(--na-info) !important;
-}
-
-body.nav-application-theme[data-initial-tab="formTab"] .xml-close-active-button {
-  border-color: #d8b1b1 !important;
-  background: #f6eaea !important;
-  color: var(--na-danger) !important;
-}
-
-body.nav-application-theme .xpath-validation-drawer,
-body.nav-application-theme .xsd-validation-drawer {
-  border-left-color: var(--na-border) !important;
-  background: var(--na-surface-raised) !important;
-  box-shadow: -10px 0 28px rgba(18, 38, 46, .12) !important;
-}
-
-body.nav-application-theme .app-footer,
-body.nav-application-theme .app-footer-inner {
-  background: var(--na-surface-raised) !important;
-  border-color: var(--na-border) !important;
+  body.nav-application-theme[data-initial-tab="formTab"] .form-layout-actions {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap !important;
+  }
 }
