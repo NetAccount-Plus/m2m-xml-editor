@@ -2,11 +2,9 @@
  * NetAccounting integrációhoz tartozó „Mentés és visszatérés” gomb.
  *
  * NetAccounting session módban az editor csak szerkeszt és validál; a NAV M2M
- * beküldést a NetAccounting végzi. Ezért az editor saját M2M/online műveletei
- * rejtve maradnak, és a visszatérési gomb állapota nem függ a normál gyorsmentéstől.
+ * beküldést a NetAccounting végzi. A gomb az aktuális XML-t a rövid életű
+ * editor sessionhöz menti, majd sikeres mentésről visszajelzést ad.
  */
-
-const SAVE_RETURN_EVENT = 'nav:netaccounting-save-return';
 
 function getEditorSessionId() {
   return String(new URLSearchParams(window.location.search).get('editorSessionId') || '').trim();
@@ -30,6 +28,69 @@ function hideEditorM2mControls() {
       element.setAttribute('aria-hidden', 'true');
     }
   });
+}
+
+async function showResult(title, message, variant = 'info') {
+  if (typeof window.navInfo === 'function') {
+    await window.navInfo({
+      eyebrow: 'NetAccounting',
+      title,
+      message,
+      cancelText: 'Rendben',
+      variant
+    });
+    return;
+  }
+  window.alert(message);
+}
+
+async function saveAndReturn(button) {
+  const editorSessionId = getEditorSessionId();
+  if (!editorSessionId) {
+    await showResult('A mentés nem indítható', 'Hiányzik a NetAccounting editor munkamenet azonosítója.', 'error');
+    return;
+  }
+
+  const xml = window.NavModularActions?.serializeCurrentXml?.();
+  if (!String(xml || '').trim()) {
+    await showResult('A mentés nem indítható', 'Az aktuális XML tartalom nem érhető el.', 'error');
+    return;
+  }
+
+  const originalText = button.querySelector('span')?.textContent || 'Mentés és visszatérés';
+  button.disabled = true;
+  button.setAttribute('aria-disabled', 'true');
+  const label = button.querySelector('span');
+  if (label) label.textContent = 'Mentés...';
+
+  try {
+    const response = await fetch(`/api/netaccounting/editor-sessions/${encodeURIComponent(editorSessionId)}/complete`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/xml; charset=UTF-8'
+      },
+      body: xml
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.message || data.error || 'A NetAccounting XML mentése nem sikerült.');
+    }
+
+    document.body.dataset.netAccountingEditorCompleted = 'true';
+    await showResult(
+      'Az XML mentése sikerült',
+      'A módosított XML elmentésre került a NetAccounting editor munkamenethez. A következő lépésben erre kötjük rá a tényleges visszatérést a NetAccounting rendszerbe.',
+      'success'
+    );
+  } catch (error) {
+    await showResult('Az XML mentése sikertelen', String(error?.message || error), 'error');
+  } finally {
+    button.disabled = false;
+    button.setAttribute('aria-disabled', 'false');
+    if (label) label.textContent = originalText;
+  }
 }
 
 export function initNetAccountingSaveReturnButton() {
@@ -62,15 +123,7 @@ export function initNetAccountingSaveReturnButton() {
 
   button.disabled = false;
   button.setAttribute('aria-disabled', 'false');
-
-  button.addEventListener('click', () => {
-    window.dispatchEvent(new CustomEvent(SAVE_RETURN_EVENT, {
-      detail: {
-        source: 'form-toolbar',
-        editorSessionId: getEditorSessionId()
-      }
-    }));
-  });
+  button.addEventListener('click', () => saveAndReturn(button));
 
   quickSaveButton.insertAdjacentElement('afterend', separator);
   separator.insertAdjacentElement('afterend', button);
