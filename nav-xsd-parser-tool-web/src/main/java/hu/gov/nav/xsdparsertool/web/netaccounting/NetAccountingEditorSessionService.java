@@ -22,12 +22,7 @@ public class NetAccountingEditorSessionService {
     private final Map<String, Entry> entries = new ConcurrentHashMap<>();
 
     public Entry create(byte[] xml, String fileName, String userId, String orgId) {
-        if (xml == null || xml.length == 0) {
-            throw new IllegalArgumentException("Az XML tartalom üres.");
-        }
-        if (xml.length > MAX_XML_SIZE) {
-            throw new IllegalArgumentException("Az XML állomány túl nagy. Maximum 16 MB engedélyezett.");
-        }
+        validateXml(xml);
         String safeFileName = normalizeFileName(fileName);
         String safeUserId = requireId(userId, "felhasználó");
         String safeOrgId = requireId(orgId, "szervezet");
@@ -35,7 +30,7 @@ public class NetAccountingEditorSessionService {
 
         String id = UUID.randomUUID().toString();
         Entry entry = new Entry(id, xml.clone(), safeFileName, safeUserId, safeOrgId,
-                Instant.now().plus(TTL));
+                Instant.now().plus(TTL), null);
         entries.put(id, entry);
         return entry;
     }
@@ -48,6 +43,35 @@ public class NetAccountingEditorSessionService {
             throw new IllegalArgumentException("A NetAccounting editor munkamenet nem található vagy lejárt.");
         }
         return entry;
+    }
+
+    /**
+     * Az editor aktuális XML-jét a meglévő NetAccounting sessionhöz menti és
+     * a munkamenetet befejezettnek jelöli. Az azonosító és a tulajdonosi adatok
+     * változatlanok maradnak, így később ugyanezzel az editorSessionId-val kérhető le az eredmény.
+     */
+    public Entry complete(String id, byte[] xml) {
+        validateXml(xml);
+        Entry current = require(id);
+        Entry completed = new Entry(
+                current.id(),
+                xml.clone(),
+                current.fileName(),
+                current.userId(),
+                current.orgId(),
+                current.expiresAt(),
+                Instant.now());
+        entries.put(id, completed);
+        return completed;
+    }
+
+    private void validateXml(byte[] xml) {
+        if (xml == null || xml.length == 0) {
+            throw new IllegalArgumentException("Az XML tartalom üres.");
+        }
+        if (xml.length > MAX_XML_SIZE) {
+            throw new IllegalArgumentException("Az XML állomány túl nagy. Maximum 16 MB engedélyezett.");
+        }
     }
 
     private void purgeExpired() {
@@ -72,6 +96,10 @@ public class NetAccountingEditorSessionService {
         return result;
     }
 
-    public record Entry(String id, byte[] xml, String fileName, String userId, String orgId, Instant expiresAt) {
+    public record Entry(String id, byte[] xml, String fileName, String userId, String orgId,
+                        Instant expiresAt, Instant completedAt) {
+        public boolean completed() {
+            return completedAt != null;
+        }
     }
 }
