@@ -1,7 +1,9 @@
 package hu.gov.nav.xsdparsertool.web.netaccounting;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -14,15 +16,19 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.util.UriComponentsBuilder;
 
 @RestController
 @RequestMapping("/api/netaccounting/editor-sessions")
 public class NetAccountingEditorController {
 
     private final NetAccountingEditorSessionService sessionService;
+    private final String netAccountingBaseUrl;
 
-    public NetAccountingEditorController(NetAccountingEditorSessionService sessionService) {
+    public NetAccountingEditorController(NetAccountingEditorSessionService sessionService,
+            @Value("${netaccounting.base-url:}") String netAccountingBaseUrl) {
         this.sessionService = sessionService;
+        this.netAccountingBaseUrl = normalizeBaseUrl(netAccountingBaseUrl);
     }
 
     /** Szerver-szerver hívás: a NetAccounting átadja a riportból előállított XML-t. */
@@ -31,13 +37,14 @@ public class NetAccountingEditorController {
     public Map<String, Object> create(@RequestParam("xmlFile") MultipartFile xmlFile,
                                       @RequestParam("userId") String userId,
                                       @RequestParam("orgId") String orgId,
-                                      @RequestParam(name = "fileName", required = false) String fileName) throws Exception {
+                                      @RequestParam(name = "fileName", required = false) String fileName,
+                                      @RequestParam(name = "returnPath", required = false) String returnPath) throws Exception {
         String effectiveFileName = fileName;
         if (effectiveFileName == null || effectiveFileName.isBlank()) {
             effectiveFileName = xmlFile.getOriginalFilename();
         }
         NetAccountingEditorSessionService.Entry entry = sessionService.create(
-                xmlFile.getBytes(), effectiveFileName, userId, orgId);
+                xmlFile.getBytes(), effectiveFileName, userId, orgId, returnPath);
         return Map.of(
                 "success", true,
                 "editorSessionId", entry.id(),
@@ -49,10 +56,17 @@ public class NetAccountingEditorController {
     @GetMapping(value = "/{id}/xml", produces = MediaType.APPLICATION_XML_VALUE)
     public ResponseEntity<byte[]> xml(@PathVariable String id) {
         NetAccountingEditorSessionService.Entry entry = requireOwnedSession(id);
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CACHE_CONTROL, "no-store")
-                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + entry.fileName() + "\"")
-                .body(entry.xml());
+        return xmlResponse(entry);
+    }
+
+    /**
+     * Szerver-szerver eredménylekérés. Csak befejezett munkamenet XML-je adható vissza,
+     * és az endpoint kizárólag FULL_ACCESS API kulccsal érhető el.
+     */
+    @GetMapping(value = "/{id}/result", produces = MediaType.APPLICATION_XML_VALUE)
+    @PreAuthorize("hasAuthority('API_KEY_FULL_ACCESS')")
+    public ResponseEntity<byte[]> result(@PathVariable String id) {
+        return xmlResponse(sessionService.requireCompleted(id));
     }
 
     /**
@@ -64,23 +78,58 @@ public class NetAccountingEditorController {
     public Map<String, Object> complete(@PathVariable String id, @RequestBody byte[] xml) {
         requireOwnedSession(id);
         NetAccountingEditorSessionService.Entry entry = sessionService.complete(id, xml);
-        return Map.of(
-                "success", true,
-                "editorSessionId", entry.id(),
-                "completed", true,
-                "completedAt", entry.completedAt().toString(),
-                "fileName", entry.fileName());
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("success", true);
+        result.put("editorSessionId", entry.id());
+        result.put("completed", true);
+        result.put("completedAt", entry.completedAt().toString());
+        result.put("fileName", entry.fileName());
+        String returnUrl = buildReturnUrl(entry);
+        if (returnUrl != null) {
+            result.put("returnUrl", returnUrl);
+        }
+        return result;
     }
 
     @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     public Map<String, Object> info(@PathVariable String id) {
         NetAccountingEditorSessionService.Entry entry = requireOwnedSession(id);
-        return Map.of(
-                "id", entry.id(),
-                "fileName", entry.fileName(),
-                "expiresAt", entry.expiresAt().toString(),
-                "completed", entry.completed(),
-                "completedAt", entry.completedAt() == null ? "" : entry.completedAt().toString());
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("id", entry.id());
+        result.put("fileName", entry.fileName());
+        result.put("expiresAt", entry.expiresAt().toString());
+        result.put("completed", entry.completed());
+        result.put("completedAt", entry.completedAt() == null ? null : entry.completedAt().toString());
+        return result;
+    }
+
+    private ResponseEntity<byte[]> xmlResponse(NetAccountingEditorSessionService.Entry entry) {
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_XML)
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .header(HttpHeaders.PRAGMA, "no-cache")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + entry.fileName() + "\"")
+                .body(entry.xml());
+    }
+
+    private String buildReturnUrl(NetAccountingEditorSessionService.Entry entry) {
+        if (netAccountingBaseUrl.isBlank() || entry.returnPath() == null) {
+            return null;
+        }
+        return UriComponentsBuilder.fromUriString(netAccountingBaseUrl)
+                .path(entry.returnPath())
+                .queryParam("editorSessionId", entry.id())
+                .build()
+                .encode()
+                .toUriString();
+    }
+
+    private String normalizeBaseUrl(String value) {
+        String result = value == null ? "" : value.trim();
+        while (result.endsWith("/")) {
+            result = result.substring(0, result.length() - 1);
+        }
+        return result;
     }
 
     private NetAccountingEditorSessionService.Entry requireOwnedSession(String id) {
