@@ -3,7 +3,8 @@
  *
  * NetAccounting session módban az editor csak szerkeszt és validál; a NAV M2M
  * beküldést a NetAccounting végzi. A gomb az aktuális XML-t a rövid életű
- * editor sessionhöz menti, majd sikeres mentésről visszajelzést ad.
+ * editor sessionhöz menti, majd a backend által előállított, megbízható
+ * NetAccounting return URL-re navigál.
  */
 
 function getEditorSessionId() {
@@ -30,13 +31,13 @@ function hideEditorM2mControls() {
   });
 }
 
-async function showResult(title, message, variant = 'info') {
+async function showResult(title, message, variant = 'info', buttonText = 'Rendben') {
   if (typeof window.navInfo === 'function') {
     await window.navInfo({
       eyebrow: 'NetAccounting',
       title,
       message,
-      cancelText: 'Rendben',
+      cancelText: buttonText,
       variant
     });
     return;
@@ -79,11 +80,17 @@ async function saveAndReturn(button) {
     }
 
     document.body.dataset.netAccountingEditorCompleted = 'true';
+    if (!data.returnUrl) {
+      throw new Error('A NetAccounting visszatérési cím nincs beállítva ehhez a munkamenethez.');
+    }
+
     await showResult(
       'Az XML mentése sikerült',
-      'A módosított XML elmentésre került a NetAccounting editor munkamenethez. A következő lépésben erre kötjük rá a tényleges visszatérést a NetAccounting rendszerbe.',
-      'success'
+      'A módosított XML elmentésre került. A visszatérés után a NetAccounting szerveroldalról veszi át az eredményt.',
+      'success',
+      'Vissza a NetAccountingba'
     );
+    window.location.assign(data.returnUrl);
   } catch (error) {
     await showResult('Az XML mentése sikertelen', String(error?.message || error), 'error');
   } finally {
