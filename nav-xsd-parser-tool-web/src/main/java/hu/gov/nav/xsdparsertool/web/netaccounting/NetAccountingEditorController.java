@@ -22,6 +22,8 @@ import org.springframework.web.util.UriComponentsBuilder;
 @RequestMapping("/api/netaccounting/editor-sessions")
 public class NetAccountingEditorController {
 
+    public static final String NAV_M2M_FILE_ID_HEADER = "X-NetAccounting-NAVM2MFileID";
+
     private final NetAccountingEditorSessionService sessionService;
     private final String netAccountingBaseUrl;
 
@@ -31,12 +33,12 @@ public class NetAccountingEditorController {
         this.netAccountingBaseUrl = normalizeBaseUrl(netAccountingBaseUrl);
     }
 
-    /** Szerver-szerver hívás: a NetAccounting átadja a riportból előállított XML-t. */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasAuthority('API_KEY_FULL_ACCESS')")
     public Map<String, Object> create(@RequestParam("xmlFile") MultipartFile xmlFile,
                                       @RequestParam("userId") String userId,
                                       @RequestParam("orgId") String orgId,
+                                      @RequestParam("navM2MFileId") String navM2MFileId,
                                       @RequestParam(name = "fileName", required = false) String fileName,
                                       @RequestParam(name = "returnPath", required = false) String returnPath) throws Exception {
         String effectiveFileName = fileName;
@@ -44,35 +46,27 @@ public class NetAccountingEditorController {
             effectiveFileName = xmlFile.getOriginalFilename();
         }
         NetAccountingEditorSessionService.Entry entry = sessionService.create(
-                xmlFile.getBytes(), effectiveFileName, userId, orgId, returnPath);
+                xmlFile.getBytes(), effectiveFileName, userId, orgId, returnPath, navM2MFileId);
         return Map.of(
                 "success", true,
                 "editorSessionId", entry.id(),
+                "navM2MFileId", entry.navM2MFileId(),
                 "fileName", entry.fileName(),
                 "expiresInSeconds", 1800);
     }
 
-    /** A már SSO-val beléptetett böngésző innen kapja meg a saját ideiglenes XML-jét. */
     @GetMapping(value = "/{id}/xml", produces = MediaType.APPLICATION_XML_VALUE)
     public ResponseEntity<byte[]> xml(@PathVariable String id) {
         NetAccountingEditorSessionService.Entry entry = requireOwnedSession(id);
-        return xmlResponse(entry);
+        return xmlResponse(entry, false);
     }
 
-    /**
-     * Szerver-szerver eredménylekérés. Csak befejezett munkamenet XML-je adható vissza,
-     * és az endpoint kizárólag FULL_ACCESS API kulccsal érhető el.
-     */
     @GetMapping(value = "/{id}/result", produces = MediaType.APPLICATION_XML_VALUE)
     @PreAuthorize("hasAuthority('API_KEY_FULL_ACCESS')")
     public ResponseEntity<byte[]> result(@PathVariable String id) {
-        return xmlResponse(sessionService.requireCompleted(id));
+        return xmlResponse(sessionService.requireCompleted(id), true);
     }
 
-    /**
-     * Böngészőoldali editor művelet: eltárolja az aktuálisan megszerkesztett XML-t,
-     * és befejezettnek jelöli a NetAccounting editor sessiont.
-     */
     @PostMapping(value = "/{id}/complete", consumes = MediaType.APPLICATION_XML_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
     public Map<String, Object> complete(@PathVariable String id, @RequestBody byte[] xml) {
@@ -85,9 +79,7 @@ public class NetAccountingEditorController {
         result.put("completedAt", entry.completedAt().toString());
         result.put("fileName", entry.fileName());
         String returnUrl = buildReturnUrl(entry);
-        if (returnUrl != null) {
-            result.put("returnUrl", returnUrl);
-        }
+        if (returnUrl != null) result.put("returnUrl", returnUrl);
         return result;
     }
 
@@ -103,32 +95,27 @@ public class NetAccountingEditorController {
         return result;
     }
 
-    private ResponseEntity<byte[]> xmlResponse(NetAccountingEditorSessionService.Entry entry) {
-        return ResponseEntity.ok()
+    private ResponseEntity<byte[]> xmlResponse(NetAccountingEditorSessionService.Entry entry, boolean includeFileId) {
+        ResponseEntity.BodyBuilder builder = ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_XML)
                 .header(HttpHeaders.CACHE_CONTROL, "no-store")
                 .header(HttpHeaders.PRAGMA, "no-cache")
-                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + entry.fileName() + "\"")
-                .body(entry.xml());
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + entry.fileName() + "\"");
+        if (includeFileId) builder.header(NAV_M2M_FILE_ID_HEADER, entry.navM2MFileId());
+        return builder.body(entry.xml());
     }
 
     private String buildReturnUrl(NetAccountingEditorSessionService.Entry entry) {
-        if (netAccountingBaseUrl.isBlank() || entry.returnPath() == null) {
-            return null;
-        }
+        if (netAccountingBaseUrl.isBlank() || entry.returnPath() == null) return null;
         return UriComponentsBuilder.fromUriString(netAccountingBaseUrl)
                 .path(entry.returnPath())
                 .queryParam("editorSessionId", entry.id())
-                .build()
-                .encode()
-                .toUriString();
+                .build().encode().toUriString();
     }
 
     private String normalizeBaseUrl(String value) {
         String result = value == null ? "" : value.trim();
-        while (result.endsWith("/")) {
-            result = result.substring(0, result.length() - 1);
-        }
+        while (result.endsWith("/")) result = result.substring(0, result.length() - 1);
         return result;
     }
 
