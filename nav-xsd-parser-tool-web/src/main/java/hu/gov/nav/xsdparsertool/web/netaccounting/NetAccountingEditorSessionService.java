@@ -21,16 +21,17 @@ public class NetAccountingEditorSessionService {
 
     private final Map<String, Entry> entries = new ConcurrentHashMap<>();
 
-    public Entry create(byte[] xml, String fileName, String userId, String orgId) {
+    public Entry create(byte[] xml, String fileName, String userId, String orgId, String returnPath) {
         validateXml(xml);
         String safeFileName = normalizeFileName(fileName);
         String safeUserId = requireId(userId, "felhasználó");
         String safeOrgId = requireId(orgId, "szervezet");
+        String safeReturnPath = normalizeReturnPath(returnPath);
         purgeExpired();
 
         String id = UUID.randomUUID().toString();
         Entry entry = new Entry(id, xml.clone(), safeFileName, safeUserId, safeOrgId,
-                Instant.now().plus(TTL), null);
+                safeReturnPath, Instant.now().plus(TTL), null);
         entries.put(id, entry);
         return entry;
     }
@@ -41,6 +42,14 @@ public class NetAccountingEditorSessionService {
         if (entry == null || entry.expiresAt().isBefore(Instant.now())) {
             if (entry != null) entries.remove(id);
             throw new IllegalArgumentException("A NetAccounting editor munkamenet nem található vagy lejárt.");
+        }
+        return entry;
+    }
+
+    public Entry requireCompleted(String id) {
+        Entry entry = require(id);
+        if (!entry.completed()) {
+            throw new IllegalStateException("A NetAccounting editor munkamenet még nincs befejezve.");
         }
         return entry;
     }
@@ -59,6 +68,7 @@ public class NetAccountingEditorSessionService {
                 current.fileName(),
                 current.userId(),
                 current.orgId(),
+                current.returnPath(),
                 current.expiresAt(),
                 Instant.now());
         entries.put(id, completed);
@@ -87,6 +97,21 @@ public class NetAccountingEditorSessionService {
         return result;
     }
 
+    private String normalizeReturnPath(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String result = value.trim();
+        if (!result.startsWith("/") || result.startsWith("//") || result.contains("://")
+                || result.contains("?") || result.contains("#") || result.contains("\r") || result.contains("\n")) {
+            throw new IllegalArgumentException("Érvénytelen NetAccounting returnPath. Csak relatív /... útvonal engedélyezett.");
+        }
+        if (result.length() > 500) {
+            throw new IllegalArgumentException("A NetAccounting returnPath túl hosszú.");
+        }
+        return result;
+    }
+
     private String normalizeFileName(String value) {
         String result = value == null ? "netaccounting.xml" : value.trim();
         result = result.replace('\\', '_').replace('/', '_').replace('\r', '_').replace('\n', '_').replace('"', '_');
@@ -97,7 +122,7 @@ public class NetAccountingEditorSessionService {
     }
 
     public record Entry(String id, byte[] xml, String fileName, String userId, String orgId,
-                        Instant expiresAt, Instant completedAt) {
+                        String returnPath, Instant expiresAt, Instant completedAt) {
         public boolean completed() {
             return completedAt != null;
         }
