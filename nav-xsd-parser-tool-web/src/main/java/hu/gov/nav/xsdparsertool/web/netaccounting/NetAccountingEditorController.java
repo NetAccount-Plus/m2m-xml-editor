@@ -9,6 +9,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -54,13 +55,32 @@ public class NetAccountingEditorController {
                 .body(entry.xml());
     }
 
+    /**
+     * Böngészőoldali editor művelet: eltárolja az aktuálisan megszerkesztett XML-t,
+     * és befejezettnek jelöli a NetAccounting editor sessiont.
+     */
+    @PostMapping(value = "/{id}/complete", consumes = MediaType.APPLICATION_XML_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> complete(@PathVariable String id, @RequestBody byte[] xml) {
+        requireOwnedSession(id);
+        NetAccountingEditorSessionService.Entry entry = sessionService.complete(id, xml);
+        return Map.of(
+                "success", true,
+                "editorSessionId", entry.id(),
+                "completed", true,
+                "completedAt", entry.completedAt().toString(),
+                "fileName", entry.fileName());
+    }
+
     @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     public Map<String, Object> info(@PathVariable String id) {
         NetAccountingEditorSessionService.Entry entry = requireOwnedSession(id);
         return Map.of(
                 "id", entry.id(),
                 "fileName", entry.fileName(),
-                "expiresAt", entry.expiresAt().toString());
+                "expiresAt", entry.expiresAt().toString(),
+                "completed", entry.completed(),
+                "completedAt", entry.completedAt() == null ? "" : entry.completedAt().toString());
     }
 
     private NetAccountingEditorSessionService.Entry requireOwnedSession(String id) {
