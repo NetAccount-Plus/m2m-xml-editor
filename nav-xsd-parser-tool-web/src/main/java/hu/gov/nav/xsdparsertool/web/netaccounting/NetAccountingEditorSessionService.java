@@ -21,17 +21,19 @@ public class NetAccountingEditorSessionService {
 
     private final Map<String, Entry> entries = new ConcurrentHashMap<>();
 
-    public Entry create(byte[] xml, String fileName, String userId, String orgId, String returnPath) {
+    public Entry create(byte[] xml, String fileName, String userId, String orgId, String returnPath,
+            String navM2MFileId) {
         validateXml(xml);
         String safeFileName = normalizeFileName(fileName);
         String safeUserId = requireId(userId, "felhasználó");
         String safeOrgId = requireId(orgId, "szervezet");
         String safeReturnPath = normalizeReturnPath(returnPath);
+        String safeNavM2MFileId = requireNumericId(navM2MFileId, "NAV M2M fájl");
         purgeExpired();
 
         String id = UUID.randomUUID().toString();
         Entry entry = new Entry(id, xml.clone(), safeFileName, safeUserId, safeOrgId,
-                safeReturnPath, Instant.now().plus(TTL), null);
+                safeReturnPath, safeNavM2MFileId, Instant.now().plus(TTL), null);
         entries.put(id, entry);
         return entry;
     }
@@ -54,11 +56,6 @@ public class NetAccountingEditorSessionService {
         return entry;
     }
 
-    /**
-     * Az editor aktuális XML-jét a meglévő NetAccounting sessionhöz menti és
-     * a munkamenetet befejezettnek jelöli. Az azonosító és a tulajdonosi adatok
-     * változatlanok maradnak, így később ugyanezzel az editorSessionId-val kérhető le az eredmény.
-     */
     public Entry complete(String id, byte[] xml) {
         validateXml(xml);
         Entry current = require(id);
@@ -69,6 +66,7 @@ public class NetAccountingEditorSessionService {
                 current.userId(),
                 current.orgId(),
                 current.returnPath(),
+                current.navM2MFileId(),
                 current.expiresAt(),
                 Instant.now());
         entries.put(id, completed);
@@ -92,6 +90,14 @@ public class NetAccountingEditorSessionService {
     private String requireId(String value, String label) {
         String result = value == null ? "" : value.trim();
         if (!result.matches("^[A-Za-z0-9._@+\\-]{1,80}$")) {
+            throw new IllegalArgumentException("Érvénytelen NetAccounting " + label + " azonosító.");
+        }
+        return result;
+    }
+
+    private String requireNumericId(String value, String label) {
+        String result = value == null ? "" : value.trim();
+        if (!result.matches("^[1-9][0-9]{0,18}$")) {
             throw new IllegalArgumentException("Érvénytelen NetAccounting " + label + " azonosító.");
         }
         return result;
@@ -122,7 +128,7 @@ public class NetAccountingEditorSessionService {
     }
 
     public record Entry(String id, byte[] xml, String fileName, String userId, String orgId,
-                        String returnPath, Instant expiresAt, Instant completedAt) {
+                        String returnPath, String navM2MFileId, Instant expiresAt, Instant completedAt) {
         public boolean completed() {
             return completedAt != null;
         }
