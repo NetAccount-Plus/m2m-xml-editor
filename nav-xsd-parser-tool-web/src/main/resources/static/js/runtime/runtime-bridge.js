@@ -26,6 +26,15 @@ export function installRuntimeBridge(){
     runCurrentFormXpathValidation,
     resolveXpathErrorTarget,
     runCurrentFormXsdValidation,
-    startActiveFileXsdValidation
+    startActiveFileXsdValidation,
+    serializeCurrentXml: () => {
+      if(globalThis.xmlSourceDirtySinceLastApply && globalThis.xmlSourceEditor?.value?.trim()){
+        return globalThis.xmlSourceEditor.value;
+      }
+      if(globalThis.currentXmlDocument && typeof globalThis.serializeXml === 'function'){
+        return globalThis.serializeXml(globalThis.currentXmlDocument);
+      }
+      return globalThis.xmlSourceEditor?.value?.trim() || '';
+    }
   };
 }
