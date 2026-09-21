@@ -100,7 +100,7 @@ function installStyles(){
       font-size: 12px !important;
     }
 
-    body.nav-application-theme[data-initial-tab="formTab"] #formXsdValidationDrawer.na-inline-xsd-validation.na-validation-ok .xpath-popup-errors-scroll {
+    body.nav-application-theme[data-initial-tab="formTab"] #formXsdValidationDrawer.na-inline-xsd-validation.na-validation-ok:not(.na-has-validation-issues) .xpath-popup-errors-scroll {
       display: none !important;
     }
 
@@ -145,13 +145,22 @@ function updateInlineState(drawer){
   const ok = statusClass.includes('ok') || statusText.includes('NINCS XSD HIBA') || statusText === 'OK';
   const warning = statusClass.includes('warning') || statusText.includes('MEGSZAK');
 
-  drawer.classList.toggle('na-validation-ok', ok);
-  drawer.classList.toggle('na-validation-warning', !ok && warning);
-  drawer.classList.toggle('na-validation-error', !ok && !warning);
-
-  drawer.querySelectorAll('#formXsdValidationErrorsBody tr').forEach(row => {
+  const rows = Array.from(drawer.querySelectorAll('#formXsdValidationErrorsBody tr'));
+  rows.forEach(row => {
     row.classList.toggle('na-technical-validation-row', isTechnicalRow(row));
   });
+
+  // A menthetőség és a validációs eredmények láthatósága két külön dolog.
+  // Előfordulhat, hogy az XML menthető / a validátor VALID állapotot ad,
+  // miközben nem blokkoló WARNING/INFO jellegű találatok is vannak.
+  // Ezeket NetAccounting módban is mindig meg kell mutatni.
+  const userVisibleRows = rows.filter(row => !row.classList.contains('na-technical-validation-row'));
+  const hasVisibleIssues = userVisibleRows.length > 0;
+
+  drawer.classList.toggle('na-has-validation-issues', hasVisibleIssues);
+  drawer.classList.toggle('na-validation-ok', ok && !hasVisibleIssues);
+  drawer.classList.toggle('na-validation-warning', (ok && hasVisibleIssues) || (!ok && warning));
+  drawer.classList.toggle('na-validation-error', !ok && !warning);
 }
 
 function attachInlineDrawer(){
