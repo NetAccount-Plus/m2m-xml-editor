@@ -2,9 +2,12 @@ package hu.gov.nav.xsdparsertool.web.xmlfile.service;
 
 import hu.gov.nav.xsdparsertool.web.githubupdater.dto.GitHubTemplateCatalogDtos;
 import hu.gov.nav.xsdparsertool.web.githubupdater.service.GitHubTemplateCatalogService;
+import hu.gov.nav.xsdparsertool.schemaregistry.service.FileSystemSchemaRegistryService;
+import hu.gov.nav.xsdparsertool.web.config.PathConfigurationProperties;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -25,14 +28,21 @@ public class FormTemplateFreshnessService {
     private static final Duration CHECK_INTERVAL = Duration.ofMinutes(5);
     private static final Duration REFRESH_TIMEOUT = Duration.ofSeconds(45);
     private static final Duration REFRESH_POLL_INTERVAL = Duration.ofMillis(250);
+    private static final Duration REGISTRY_RELOAD_TIMEOUT = Duration.ofSeconds(45);
 
     private final GitHubTemplateCatalogService catalogService;
+    private final FileSystemSchemaRegistryService schemaRegistryService;
+    private final PathConfigurationProperties pathProperties;
 
     private final Object lock = new Object();
     private volatile Instant lastSuccessfulCheck;
 
-    public FormTemplateFreshnessService(GitHubTemplateCatalogService catalogService) {
+    public FormTemplateFreshnessService(GitHubTemplateCatalogService catalogService,
+                                        FileSystemSchemaRegistryService schemaRegistryService,
+                                        PathConfigurationProperties pathProperties) {
         this.catalogService = catalogService;
+        this.schemaRegistryService = schemaRegistryService;
+        this.pathProperties = pathProperties;
     }
 
     /**
@@ -61,7 +71,10 @@ public class FormTemplateFreshnessService {
                     }
                 }
 
-                installMissingLatestActiveReleases();
+                boolean installed = installMissingLatestActiveReleases();
+                if (installed) {
+                    reloadSchemaRegistry();
+                }
                 lastSuccessfulCheck = Instant.now();
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
@@ -88,7 +101,7 @@ public class FormTemplateFreshnessService {
         throw new IllegalStateException("A NAV nyomtatványkatalógus frissítése nem fejeződött be időben.");
     }
 
-    private void installMissingLatestActiveReleases() {
+    private boolean installMissingLatestActiveReleases() {
         GitHubTemplateCatalogDtos.CatalogResponse catalog = catalogService.catalog(false);
         List<GitHubTemplateCatalogDtos.DownloadItem> downloads = new ArrayList<>();
         Set<String> handledRepositories = new HashSet<>();
@@ -97,11 +110,10 @@ public class FormTemplateFreshnessService {
             if (row == null || row.repository() == null || row.repository().isBlank()) {
                 continue;
             }
-            if (!handledRepositories.add(row.repository())) {
+            if (row.disabled() || row.releaseTag() == null || row.releaseTag().isBlank()) {
                 continue;
             }
-
-            if (row.disabled() || row.releaseTag() == null || row.releaseTag().isBlank()) {
+            if (!handledRepositories.add(row.repository())) {
                 continue;
             }
 
@@ -110,8 +122,37 @@ public class FormTemplateFreshnessService {
             }
         }
 
-        if (!downloads.isEmpty()) {
-            catalogService.download(new GitHubTemplateCatalogDtos.DownloadRequest(downloads, false));
+        if (downloads.isEmpty()) {
+            return false;
         }
+
+        catalogService.download(new GitHubTemplateCatalogDtos.DownloadRequest(downloads, false));
+        return true;
+    }
+
+    private void reloadSchemaRegistry() throws InterruptedException {
+        Path schemaRoot = configuredPath(pathProperties.getSchemaDir());
+        Path commonRoot = configuredPath(pathProperties.getCommonXsdDir());
+        schemaRegistryService.reloadAsync(schemaRoot, commonRoot);
+
+        Instant deadline = Instant.now().plus(REGISTRY_RELOAD_TIMEOUT);
+        while (Instant.now().isBefore(deadline)) {
+            var status = schemaRegistryService.getStatus();
+            if (!status.isLoading()) {
+                if (!status.isReady()) {
+                    throw new IllegalStateException("A séma-regiszter frissítése sikertelen: " + status.getPhase());
+                }
+                return;
+            }
+            Thread.sleep(REFRESH_POLL_INTERVAL.toMillis());
+        }
+        throw new IllegalStateException("A séma-regiszter frissítése nem fejeződött be időben.");
+    }
+
+    private Path configuredPath(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return Path.of(value.trim()).toAbsolutePath().normalize();
     }
 }
