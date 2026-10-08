@@ -23,17 +23,30 @@ public class NetAccountingEditorSessionService {
 
     public Entry create(byte[] xml, String fileName, String userId, String orgId, String returnPath,
             String navM2MFileId) {
+        String safeNavM2MFileId = requireNumericId(navM2MFileId, "NAV M2M fájl");
+        return createInternal(xml, fileName, userId, orgId, returnPath, safeNavM2MFileId);
+    }
+
+    /**
+     * Új, még NetAccounting NAV M2M fájlazonosítóval nem rendelkező bevalláshoz
+     * hoz létre szerkesztési munkamenetet.
+     */
+    public Entry createGenerated(byte[] xml, String fileName, String userId, String orgId, String returnPath) {
+        return createInternal(xml, fileName, userId, orgId, returnPath, null);
+    }
+
+    private Entry createInternal(byte[] xml, String fileName, String userId, String orgId, String returnPath,
+            String navM2MFileId) {
         validateXml(xml);
         String safeFileName = normalizeFileName(fileName);
         String safeUserId = requireId(userId, "felhasználó");
         String safeOrgId = requireId(orgId, "szervezet");
         String safeReturnPath = normalizeReturnPath(returnPath);
-        String safeNavM2MFileId = requireNumericId(navM2MFileId, "NAV M2M fájl");
         purgeExpired();
 
         String id = UUID.randomUUID().toString();
         Entry entry = new Entry(id, xml.clone(), safeFileName, safeUserId, safeOrgId,
-                safeReturnPath, safeNavM2MFileId, Instant.now().plus(TTL), null);
+                safeReturnPath, navM2MFileId, Instant.now().plus(TTL), null);
         entries.put(id, entry);
         return entry;
     }
@@ -109,7 +122,7 @@ public class NetAccountingEditorSessionService {
         }
         String result = value.trim();
         if (!result.startsWith("/") || result.startsWith("//") || result.contains("://")
-                || result.contains("?") || result.contains("#") || result.contains("\r") || result.contains("\n")) {
+                || result.contains("?") || result.contains("#") || result.contains("\\r") || result.contains("\\n")) {
             throw new IllegalArgumentException("Érvénytelen NetAccounting returnPath. Csak relatív /... útvonal engedélyezett.");
         }
         if (result.length() > 500) {
@@ -120,7 +133,7 @@ public class NetAccountingEditorSessionService {
 
     private String normalizeFileName(String value) {
         String result = value == null ? "netaccounting.xml" : value.trim();
-        result = result.replace('\\', '_').replace('/', '_').replace('\r', '_').replace('\n', '_').replace('"', '_');
+        result = result.replace('\\\\', '_').replace('/', '_').replace('\\r', '_').replace('\\n', '_').replace('"', '_');
         if (result.isBlank()) result = "netaccounting.xml";
         if (!result.toLowerCase().endsWith(".xml")) result += ".xml";
         if (result.length() > 180) result = result.substring(result.length() - 180);
