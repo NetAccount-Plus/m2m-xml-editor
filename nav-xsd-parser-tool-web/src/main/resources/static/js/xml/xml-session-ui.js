@@ -161,6 +161,18 @@ export function createXmlSessionUi({ elements, getState, setState, callbacks }){
   async function autoLoadFromQuery(){
     const params = new URLSearchParams(window.location.search || '');
     const editorSessionId = params.get('editorSessionId');
+	
+	const openAsNewXml = params.get('newXml') === 'true';
+	  if(openAsNewXml){
+	    params.delete('newXml');
+	    const query = params.toString();
+	    window.history.replaceState(
+	      null,
+	      '',
+	      `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash || ''}`
+	    );
+	  }
+	
     if(!xmlPathInput || !document.body || document.body.dataset.initialTab !== 'formTab') return;
     if(editorSessionId){
       try{
@@ -210,7 +222,15 @@ export function createXmlSessionUi({ elements, getState, setState, callbacks }){
     try{ sessionStorage.setItem('navXsdToolActiveXmlFile', JSON.stringify(opened)); sessionStorage.setItem('navXsdToolLastFormUrl', callbacks.buildActiveFormUrl()); }catch(_ignored){}
     callbacks.updateFormNavigationLinks(); callbacks.clearFormDirty(); callbacks.updateCloseActiveXmlButton(); callbacks.applyLargeFileModeForActiveXml(); startActiveSessionPolling(); startLockReleaseRequestPolling();
     document.body.classList.toggle('xml-file-readonly-mode', opened.readOnly === true);
-    if(opened.readOnly === true){ setState({ currentUiModelMissingFieldsVisible:false }); callbacks.updateFormRendererSwitch(); callbacks.persistUiState(); }
+	if(opened.readOnly === true){
+	  setState({ currentUiModelMissingFieldsVisible:false });
+	  callbacks.updateFormRendererSwitch();
+	  callbacks.persistUiState();
+	}else if(openAsNewXml){
+	  setState({ currentUiModelMissingFieldsVisible:true });
+	  callbacks.updateFormRendererSwitch();
+	  callbacks.persistUiState();
+	}
     const requestData = new FormData();
     if(schemaDirInput?.value?.trim()) requestData.append('schemaDir', schemaDirInput.value.trim());
     if(generalXsdDirInput?.value?.trim()) requestData.append('generalXsdDir', generalXsdDirInput.value.trim());
