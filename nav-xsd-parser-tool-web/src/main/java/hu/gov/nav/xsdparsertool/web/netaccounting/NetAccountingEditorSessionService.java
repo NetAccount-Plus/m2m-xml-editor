@@ -133,7 +133,7 @@ public class NetAccountingEditorSessionService {
 
     private String normalizeFileName(String value) {
         String result = value == null ? "netaccounting.xml" : value.trim();
-        result = result.replace('\\\\', '_').replace('/', '_').replace('\\r', '_').replace('\\n', '_').replace('"', '_');
+        result = result.replace('\\', '_').replace('/', '_').replace('\r', '_').replace('\n', '_').replace('"', '_');
         if (result.isBlank()) result = "netaccounting.xml";
         if (!result.toLowerCase().endsWith(".xml")) result += ".xml";
         if (result.length() > 180) result = result.substring(result.length() - 180);
