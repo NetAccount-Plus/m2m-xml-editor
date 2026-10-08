@@ -99,6 +99,23 @@ public class XmlFileGenerationService {
         }
     }
 
+    /**
+     * NetAccounting session-használathoz generál minimális, megnyitható XML-t anélkül,
+     * hogy azt az M2M editor saját XML állománytárába regisztrálná.
+     */
+    public byte[] generateSessionXml(String formType, String formVersion) throws IOException {
+        String safeFormType = requireText(formType, "Az űrlap kiválasztása kötelező.");
+        String safeFormVersion = requireText(formVersion, "Az űrlapverzió kiválasztása kötelező.");
+        Path target = Files.createTempFile("netaccounting-m2m-", ".xml");
+        try {
+            xmlProcessingService.generateOpenableXml(
+                    safeFormType, safeFormVersion, requireSchemaRoot(), target);
+            return Files.readAllBytes(target);
+        } finally {
+            Files.deleteIfExists(target);
+        }
+    }
+
     private Path requireSchemaRoot() {
         String configured = pathProperties.getSchemaDir();
         if (configured == null || configured.isBlank()) {
@@ -116,7 +133,7 @@ public class XmlFileGenerationService {
         if (configured == null || configured.isBlank()) {
             throw new IllegalStateException("Az XML állománytár könyvtára nincs konfigurálva.");
         }
-        return Path.of(configured).toAbsolutePath().normalize();
+        return Path.of(configured.trim()).toAbsolutePath().normalize();
     }
 
     private String requireText(String value, String message) {

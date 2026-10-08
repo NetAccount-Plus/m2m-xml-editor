@@ -98,7 +98,7 @@ export function createXmlSessionUi({ elements, getState, setState, callbacks }){
 
   function hideInitialLargeXmlProcess(){ const overlay = document.getElementById('largeXmlProcessOverlay'); if(overlay) overlay.hidden = true; }
 
-  async function autoLoadNetAccountingSession(editorSessionId){
+  async function autoLoadNetAccountingSession(editorSessionId, openAsNewXml){
     // A NetAccounting editor-session nem az M2M saját XML-fájltárának munkamenete.
     // Töröljük az esetleg korábbról bent maradt fájltári session állapotot, nehogy
     // a hagyományos fizikai-fájl workflow belekeveredjen a rövid életű editor sessionbe.
@@ -135,6 +135,11 @@ export function createXmlSessionUi({ elements, getState, setState, callbacks }){
       if(!response.ok) throw new Error(data.error || data.message || 'A NetAccounting XML feldolgozása nem sikerült.');
       callbacks.renderValidate(data, { preserveExistingFormOnInvalid:true });
       callbacks.clearLargeXmlSourceIfNeeded();
+      if(openAsNewXml || info?.newXml === true){
+        setState({ currentUiModelMissingFieldsVisible:true });
+        callbacks.updateFormRendererSwitch();
+        callbacks.persistUiState();
+      }
       if(data.formDefinition && (data.xmlView?.rawXml || data.partialPreview === true || data.largeFileMode === true)) callbacks.activateTab('formTab');
       callbacks.updateFormRendererSwitch();
     }finally{
@@ -176,7 +181,7 @@ export function createXmlSessionUi({ elements, getState, setState, callbacks }){
     if(!xmlPathInput || !document.body || document.body.dataset.initialTab !== 'formTab') return;
     if(editorSessionId){
       try{
-        await autoLoadNetAccountingSession(editorSessionId);
+        await autoLoadNetAccountingSession(editorSessionId, openAsNewXml);
       }catch(error){
         // A NetAccounting session hibáját itt kezeljük. Nem engedjük tovább a
         // hagyományos Űrlapállomány hibakezeléshez, mert az tévesen fizikai XML
