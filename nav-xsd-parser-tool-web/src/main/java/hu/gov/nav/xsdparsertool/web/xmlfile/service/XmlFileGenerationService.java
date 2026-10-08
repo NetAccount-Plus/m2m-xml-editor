@@ -31,6 +31,7 @@ public class XmlFileGenerationService {
     private final PathConfigurationProperties pathProperties;
     private final XmlFileStorageProperties storageProperties;
     private final XmlFileService xmlFileService;
+    private final FormTemplateFreshnessService formTemplateFreshnessService;
 
     /**
      * Létrehozza az XML-generálási szolgáltatást.
@@ -45,12 +46,14 @@ public class XmlFileGenerationService {
                                     FileSystemSchemaRegistryService schemaRegistryService,
                                     PathConfigurationProperties pathProperties,
                                     XmlFileStorageProperties storageProperties,
-                                    XmlFileService xmlFileService) {
+                                    XmlFileService xmlFileService,
+                                    FormTemplateFreshnessService formTemplateFreshnessService) {
         this.xmlProcessingService = xmlProcessingService;
         this.schemaRegistryService = schemaRegistryService;
         this.pathProperties = pathProperties;
         this.storageProperties = storageProperties;
         this.xmlFileService = xmlFileService;
+        this.formTemplateFreshnessService = formTemplateFreshnessService;
     }
 
     /**
@@ -59,6 +62,7 @@ public class XmlFileGenerationService {
      * @return a választható űrlapok rendezett listája
      */
     public List<XmlGenerationOptionDto> listOptions() {
+        formTemplateFreshnessService.ensureFresh();
         Path schemaRoot = requireSchemaRoot();
         return schemaRegistryService.listDocumentOptions(schemaRoot).stream()
                 .map(option -> new XmlGenerationOptionDto(option.documentType(), option.versions()))
@@ -73,6 +77,7 @@ public class XmlFileGenerationService {
      * @throws IOException ha a fizikai fájl létrehozása vagy regisztrációja sikertelen
      */
     public XmlFileDto create(CreateXmlFileRequest request) throws IOException {
+        formTemplateFreshnessService.ensureFresh();
         if (request == null) {
             throw new IllegalArgumentException("Hiányzó XML létrehozási kérés.");
         }
@@ -104,6 +109,7 @@ public class XmlFileGenerationService {
      * hogy azt az M2M editor saját XML állománytárába regisztrálná.
      */
     public byte[] generateSessionXml(String formType, String formVersion) throws IOException {
+        formTemplateFreshnessService.ensureFresh();
         String safeFormType = requireText(formType, "Az űrlap kiválasztása kötelező.");
         String safeFormVersion = requireText(formVersion, "Az űrlapverzió kiválasztása kötelező.");
         Path target = Files.createTempFile("netaccounting-m2m-", ".xml");
