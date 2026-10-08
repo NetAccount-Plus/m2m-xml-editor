@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import hu.gov.nav.xsdparsertool.core.support.ExceptionSafeOperations;
 import hu.gov.nav.xsdparsertool.core.support.SecureFileOperations;
 import hu.gov.nav.xsdparsertool.web.githubupdater.config.GitHubSchemaUpdaterProperties;
+import hu.gov.nav.xsdparsertool.web.githubupdater.spi.GitHubNetworkSettingsProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Primary;
@@ -53,10 +54,12 @@ public class NetAccountingPublicGitHubApiClient extends GitHubApiClient {
     private final GitHubSchemaUpdaterProperties properties;
     private final ObjectMapper objectMapper;
 
-    public NetAccountingPublicGitHubApiClient(GitHubSchemaUpdaterProperties properties,
-                                               ObjectMapper objectMapper,
-                                               GitHubProxySettingsService proxySettingsService) {
-        super(properties, objectMapper, proxySettingsService);
+    public NetAccountingPublicGitHubApiClient(
+            GitHubSchemaUpdaterProperties properties,
+            ObjectMapper objectMapper,
+            GitHubNetworkSettingsProvider networkSettingsProvider) {
+
+        super(properties, objectMapper, networkSettingsProvider);
         this.properties = properties;
         this.objectMapper = objectMapper;
     }

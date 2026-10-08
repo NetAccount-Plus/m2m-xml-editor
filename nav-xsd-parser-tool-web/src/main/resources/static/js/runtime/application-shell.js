@@ -1057,6 +1057,30 @@ function setupViewMenu(){
       }
     });
   });
+  viewMenu.querySelectorAll('input[name="fieldGroupViewMode"]').forEach(input => {
+    input.addEventListener('change', () => {
+      if(!input.checked) return;
+      globalThis.setFieldGroupViewMode?.(input.value);
+      if(currentViewMode !== 'xml-tree' && currentFormDefinition && currentFormData){
+        renderForm(currentFormDefinition, currentFormData, currentSchemaBundle || null);
+      }
+      updateViewMenuControls();
+      viewMenu.hidden = true;
+      viewMenuButton.setAttribute('aria-expanded', 'false');
+    });
+  });
+  viewMenu.querySelectorAll('input[name="fieldGroupGridColumns"]').forEach(input => {
+    input.addEventListener('change', () => {
+      if(!input.checked) return;
+      globalThis.setFieldGroupGridColumns?.(input.value);
+      if(currentViewMode !== 'xml-tree' && currentFormDefinition && currentFormData){
+        renderForm(currentFormDefinition, currentFormData, currentSchemaBundle || null);
+      }
+      updateViewMenuControls();
+      viewMenu.hidden = true;
+      viewMenuButton.setAttribute('aria-expanded', 'false');
+    });
+  });
   document.addEventListener('click', (event) => {
     if(viewMenu.hidden) return;
     if(event.target === viewMenuButton || viewMenuButton.contains(event.target) || viewMenu.contains(event.target)) return;
@@ -1079,6 +1103,14 @@ function updateViewMenuControls(){
   };
   if(viewMenuCurrentLabel) viewMenuCurrentLabel.textContent = labels[currentViewMode] || labels.table;
   viewMenu?.querySelectorAll('input[name="formViewMode"]').forEach(input => { input.checked = input.value === currentViewMode; });
+  const fieldGroupViewMode = globalThis.getFieldGroupViewMode?.() || 'auto';
+  viewMenu?.querySelectorAll('input[name="fieldGroupViewMode"]').forEach(input => {
+    input.checked = input.value === fieldGroupViewMode;
+  });
+  const fieldGroupGridColumns = String(globalThis.getFieldGroupGridColumns?.() || 2);
+  viewMenu?.querySelectorAll('input[name="fieldGroupGridColumns"]').forEach(input => {
+    input.checked = input.value === fieldGroupGridColumns;
+  });
 }
 
 /**
@@ -1203,14 +1235,23 @@ function updateFormRendererSwitch(){
  * @param {*} visible a függvény visible bemeneti értéke
  * @param {*} options a művelet opcionális beállításai
  */
+function rerenderCurrentUiModelPreservingMultiformView(){
+  const multiformViewState = globalThis.captureMultiformRuntimeViewState?.() || null;
+  if(currentXmlDocument && currentFormDefinition && typeof buildFormDataFromDocument === 'function'){
+    currentFormData = buildFormDataFromDocument(currentFormDefinition, currentXmlDocument);
+  }
+  renderForm(currentFormDefinition, currentFormData, currentSchemaBundle || null);
+  bindFieldClicks();
+  bindFormValueSync();
+  highlightSelections();
+  globalThis.restoreMultiformRuntimeViewState?.(multiformViewState);
+}
+
 function setUiModelDetailsVisible(visible, options = {}){
   currentUiModelDetailsVisible = visible === true;
   updateFormRendererSwitch();
   if(!options.skipRender && currentFormRenderer === 'uimodel' && currentFormDefinition && currentFormData){
-    renderForm(currentFormDefinition, currentFormData, currentSchemaBundle || null);
-    bindFieldClicks();
-    bindFormValueSync();
-    highlightSelections();
+    rerenderCurrentUiModelPreservingMultiformView();
   }
   persistUiState();
 }
@@ -1229,10 +1270,7 @@ function setUiModelMissingFieldsVisible(visible, options = {}){
   currentUiModelMissingFieldsVisible = visible === true;
   updateFormRendererSwitch();
   if(!options.skipRender && currentFormRenderer === 'uimodel' && currentFormDefinition && currentFormData){
-    renderForm(currentFormDefinition, currentFormData, currentSchemaBundle || null);
-    bindFieldClicks();
-    bindFormValueSync();
-    highlightSelections();
+    rerenderCurrentUiModelPreservingMultiformView();
   }
   persistUiState();
 }
