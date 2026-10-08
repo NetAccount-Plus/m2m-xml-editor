@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import hu.gov.nav.xsdparsertool.web.xmlfile.service.XmlFileGenerationService;
+
 @RestController
 @RequestMapping("/api/netaccounting/editor-sessions")
 public class NetAccountingEditorController {
@@ -25,11 +27,14 @@ public class NetAccountingEditorController {
     public static final String NAV_M2M_FILE_ID_HEADER = "X-NetAccounting-NAVM2MFileID";
 
     private final NetAccountingEditorSessionService sessionService;
+    private final XmlFileGenerationService xmlFileGenerationService;
     private final String netAccountingBaseUrl;
 
     public NetAccountingEditorController(NetAccountingEditorSessionService sessionService,
+            XmlFileGenerationService xmlFileGenerationService,
             @Value("${netaccounting.base-url:}") String netAccountingBaseUrl) {
         this.sessionService = sessionService;
+        this.xmlFileGenerationService = xmlFileGenerationService;
         this.netAccountingBaseUrl = normalizeBaseUrl(netAccountingBaseUrl);
     }
 
@@ -53,6 +58,35 @@ public class NetAccountingEditorController {
                 "navM2MFileId", entry.navM2MFileId(),
                 "fileName", entry.fileName(),
                 "expiresInSeconds", 1800);
+    }
+
+    /**
+     * Új, üres bevalláshoz hoz létre NetAccounting editor sessiont.
+     * Az XML az XSD-ből generálódik, és nem kerül az editor saját állománytárába.
+     */
+    @PostMapping(value = "/new", consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    @PreAuthorize("hasAuthority('API_KEY_FULL_ACCESS')")
+    public Map<String, Object> createNew(@RequestBody NewSessionRequest request) throws Exception {
+        if (request == null) {
+            throw new IllegalArgumentException("Hiányzó NetAccounting új bevallás kérés.");
+        }
+        byte[] xml = xmlFileGenerationService.generateSessionXml(request.formType(), request.formVersion());
+        String fileName = request.fileName();
+        if (fileName == null || fileName.isBlank()) {
+            fileName = request.formType() + "_" + request.formVersion() + ".xml";
+        }
+        NetAccountingEditorSessionService.Entry entry = sessionService.createGenerated(
+                xml, fileName, request.userId(), request.orgId(), request.returnPath());
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("success", true);
+        result.put("editorSessionId", entry.id());
+        result.put("fileName", entry.fileName());
+        result.put("newXml", true);
+        result.put("editorPath", "/form.html?editorSessionId=" + entry.id() + "&newXml=true");
+        result.put("expiresInSeconds", 1800);
+        return result;
     }
 
     @GetMapping(value = "/{id}/xml", produces = MediaType.APPLICATION_XML_VALUE)
@@ -92,6 +126,7 @@ public class NetAccountingEditorController {
         result.put("expiresAt", entry.expiresAt().toString());
         result.put("completed", entry.completed());
         result.put("completedAt", entry.completedAt() == null ? null : entry.completedAt().toString());
+        result.put("newXml", entry.navM2MFileId() == null);
         return result;
     }
 
@@ -101,7 +136,9 @@ public class NetAccountingEditorController {
                 .header(HttpHeaders.CACHE_CONTROL, "no-store")
                 .header(HttpHeaders.PRAGMA, "no-cache")
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + entry.fileName() + "\"");
-        if (includeFileId) builder.header(NAV_M2M_FILE_ID_HEADER, entry.navM2MFileId());
+        if (includeFileId && entry.navM2MFileId() != null && !entry.navM2MFileId().isBlank()) {
+            builder.header(NAV_M2M_FILE_ID_HEADER, entry.navM2MFileId());
+        }
         return builder.body(entry.xml());
     }
 
@@ -131,5 +168,9 @@ public class NetAccountingEditorController {
             throw new org.springframework.security.access.AccessDeniedException("A NetAccounting editor munkamenet más felhasználóhoz tartozik.");
         }
         return entry;
+    }
+
+    public record NewSessionRequest(String formType, String formVersion, String userId,
+                                    String orgId, String fileName, String returnPath) {
     }
 }
