@@ -21,7 +21,8 @@ public class NetAccountingTrustedLoginController {
     @PreAuthorize("hasAuthority('API_KEY_FULL_ACCESS')")
     public Map<String, Object> issue(@RequestParam String userId,
                                      @RequestParam String org,
-                                     @RequestParam(defaultValue = "/xml-files.html") String redirect) {
+                                     @RequestParam(defaultValue = "/xml-files.html") String redirect,
+                                     @RequestParam(defaultValue = "false") boolean templateAdmin) {
         if (!userId.matches("^[A-Za-z0-9._@+\\-]{1,80}$") || !org.matches("^[A-Za-z0-9._@+\\-]{1,80}$")) {
             throw new IllegalArgumentException("Érvénytelen NetAccounting felhasználó vagy szervezet azonosító.");
         }
@@ -29,7 +30,7 @@ public class NetAccountingTrustedLoginController {
                 || redirect.contains("\r") || redirect.contains("\n")) {
             throw new IllegalArgumentException("Érvénytelen trusted login redirect.");
         }
-        String ticket = tokenService.issue(userId, org, redirect);
+        String ticket = tokenService.issue(userId, org, redirect, templateAdmin);
         return Map.of("success", true, "token", ticket, "expiresInSeconds", 60);
     }
 }
