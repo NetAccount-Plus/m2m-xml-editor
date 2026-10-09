@@ -21,12 +21,12 @@ public class NetAccountingTrustedLoginTokenService {
 
     private final Map<String, Entry> tokens = new ConcurrentHashMap<>();
 
-    public String issue(String userId, String org, String redirect) {
+    public String issue(String userId, String org, String redirect, boolean templateAdmin) {
         purgeExpired();
         byte[] random = new byte[32];
         RANDOM.nextBytes(random);
         String token = Base64.getUrlEncoder().withoutPadding().encodeToString(random);
-        tokens.put(token, new Entry(userId, org, redirect, Instant.now().getEpochSecond() + TOKEN_LIFETIME_SECONDS));
+        tokens.put(token, new Entry(userId, org, redirect, templateAdmin, Instant.now().getEpochSecond() + TOKEN_LIFETIME_SECONDS));
         return token;
     }
 
@@ -43,5 +43,5 @@ public class NetAccountingTrustedLoginTokenService {
         tokens.entrySet().removeIf(entry -> entry.getValue().expiresAt() < now);
     }
 
-    public record Entry(String userId, String org, String redirect, long expiresAt) {}
+    public record Entry(String userId, String org, String redirect, boolean templateAdmin, long expiresAt) {}
 }
