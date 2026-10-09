@@ -97,8 +97,12 @@ public class SecurityConfiguration {
         http.authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .requestMatchers("/xml-index-config.html", "/api/xml-index-config/**").hasAnyRole("ADMIN", "XML_INDEX_CONFIG_MANAGE")
+                        .requestMatchers("/github-templates.html",
+                                "/api/github-templates/download", "/api/github-templates/import",
+                                "/api/github-templates/refresh", "/api/github-templates/local-delete")
+                                .hasAnyRole("ADMIN", "TEMPLATE_ADMIN")
                         .requestMatchers("/admin.html", "/configuration.html", "/console-log.html", "/audit-log.html",
-                                "/users.html", "/user-edit.html", "/api/admin/**", "/api/github-templates/local-delete",
+                                "/users.html", "/user-edit.html", "/api/admin/**",
                                 "/api/database/**", "/api/proxy-settings/**", "/api/m2m-proxy-settings/**",
                                 "/api/users/**", "/h2-console/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
