@@ -19,8 +19,10 @@ import java.util.Set;
  * Központi frissítési őr az új XML létrehozási folyamatokhoz.
  *
  * <p>Minden új-nyomtatvány használat előtt ellenőrzi a NAV/GitHub katalógust,
- * szükség esetén frissíti a lokális katalógusmetaadatokat, majd letölti az
- * aktuális, aktív release-eket, amelyek még nincsenek lokálisan telepítve.</p>
+ * szükség esetén frissíti a lokális katalógusmetaadatokat, majd a már helyben
+ * ismert nyomtatványtípusok aktuális, aktív release-eit automatikusan telepíti.
+ * Teljesen új NAV nyomtatványtípusokat nem tölt le automatikusan; azokat admin
+ * felhasználó teheti elérhetővé az Űrlapsablonok felületről.</p>
  */
 @Service
 public class FormTemplateFreshnessService {
@@ -113,6 +115,14 @@ public class FormTemplateFreshnessService {
             if (row.disabled() || row.releaseTag() == null || row.releaseTag().isBlank()) {
                 continue;
             }
+
+            // Automatikus frissítés csak olyan nyomtatványtípusra futhat,
+            // amelyből már van helyben ismert/telepített verzió. Így egy teljesen
+            // új NAV formType csak admin döntés után válik használhatóvá.
+            if (!row.locallyKnown()) {
+                continue;
+            }
+
             if (!handledRepositories.add(row.repository())) {
                 continue;
             }
