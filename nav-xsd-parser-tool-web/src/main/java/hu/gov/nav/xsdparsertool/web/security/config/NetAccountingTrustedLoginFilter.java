@@ -1,6 +1,7 @@
 package hu.gov.nav.xsdparsertool.web.security.config;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -67,9 +68,14 @@ public class NetAccountingTrustedLoginFilter extends OncePerRequestFilter {
 
     private void establishSession(HttpServletRequest request, HttpServletResponse response,
                                   NetAccountingTrustedLoginTokenService.Entry ticket) {
+        List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+        authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
+        if (ticket.templateAdmin()) {
+            authorities.add(new SimpleGrantedAuthority("ROLE_TEMPLATE_ADMIN"));
+        }
+
         UsernamePasswordAuthenticationToken authentication = UsernamePasswordAuthenticationToken.authenticated(
-                "netaccounting-" + ticket.userId(), null,
-                List.of(new SimpleGrantedAuthority("ROLE_USER")));
+                "netaccounting-" + ticket.userId(), null, authorities);
 
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(authentication);
@@ -78,6 +84,7 @@ public class NetAccountingTrustedLoginFilter extends OncePerRequestFilter {
         HttpSession session = request.getSession(true);
         session.setAttribute("netaccountingUserId", ticket.userId());
         session.setAttribute("netaccountingOrg", ticket.org());
+        session.setAttribute("netaccountingTemplateAdmin", ticket.templateAdmin());
         securityContextRepository.saveContext(context, request, response);
     }
 
