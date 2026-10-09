@@ -33,15 +33,12 @@ function readStoredMode() {
    * @param {*} mode a függvény mode bemeneti értéke
    */
 function updateLogos(mode) {
-    const logoSource = mode === DARK ? '/images/SET_logo_dark.png' : '/images/SET_logo.png';
-    document.querySelectorAll('img[src$="/images/SET_logo.png"], img[src$="/images/SET_logo_dark.png"]')
+    document.querySelectorAll('img[src$="/images/SET_logo.png"], img[src$="/images/SET_logo_dark.png"], img[src$="/images/navi-logo.svg"]')
       .forEach(function (logo) {
-        if (logo.getAttribute('src') !== logoSource) {
-          logo.setAttribute('src', logoSource);
-        }
+        logo.setAttribute('src', '/images/navi-logo.svg');
+        logo.setAttribute('alt', 'NAVI – NAV M2M nyomtatványkitöltő');
       });
   }
-
     /**
    * Szinkronizálja vagy frissíti a apply mode által kezelt állapotot a megadott adatok alapján.
    *
